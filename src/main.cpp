@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "config.h"
 #include "cadence.h"
 #include "servo_control.h"
 #include "display.h"

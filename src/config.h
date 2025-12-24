@@ -1,10 +1,5 @@
 #pragma once
 
-// ===== SPI DISPLAY (Waveshare 3.5 LCD C) =====
-#define TFT_CS   5
-#define TFT_DC   21
-#define TFT_RST  22
-
 // ===== TOUCH =====
 #define TOUCH_CS   4
 #define TOUCH_IRQ 27
@@ -15,7 +10,7 @@
 #define SERVO_MAX_ANGLE 150
 
 // ===== CADENCE SENSOR =====
-#define CADENCE_PIN 33
+#define CADENCE_PIN 33  // pin 33 is labelled as 
 
 // ===== CONTROL =====
 #define CONTROL_INTERVAL_MS 20   // 50 Hz
