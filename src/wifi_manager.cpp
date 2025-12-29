@@ -50,3 +50,9 @@ String wifiSTAIP() {
 String wifiAPIP() {
     return WiFi.softAPIP().toString();
 }
+
+bool wifiHasSavedCredentials() {
+    prefs.begin("wifi", true); // read-only
+    String ssid = prefs.getString("ssid", "");
+    return ssid.length() > 0;
+}

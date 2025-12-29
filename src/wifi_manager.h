@@ -8,3 +8,5 @@ void wifiDisconnectSTA();
 bool wifiSTAConnected();
 String wifiSTAIP();
 String wifiAPIP();
+
+bool wifiHasSavedCredentials();

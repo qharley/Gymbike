@@ -3,6 +3,9 @@
 #include <WiFi.h>
 #include "wifi_manager.h"
 
+// Forward declaration if not in wifi_manager.h
+bool wifiHasSavedCredentials();
+
 AsyncWebServer server(80);
 
 /* ---------- Shared mobile-friendly page wrapper ---------- */
@@ -34,34 +37,42 @@ static String pageFooter() {
 
 void webServerInit() {
 
-    /* ===== Root dashboard ===== */
+    /* ===== Gym Bike Main Display ===== */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *r) {
+
+        if (!wifiHasSavedCredentials()) {
+            r->redirect("/settings");
+            return;
+        }
+
         String html = pageHeader("Gym Bike");
 
         html += "<div class='card'>";
-        html += "<p><b>Status</b></p>";
-        html += wifiSTAConnected()
-            ? "<p>LAN IP: " + wifiSTAIP() + "</p>"
-            : "<p>Not connected to local Wi-Fi</p>";
-        html += "<p>AP IP: " + wifiAPIP() + "</p>";
+        html += "<p><b>Cadence</b></p>";
+        html += "<p style='font-size:36px' id='cadence'>-- rpm</p>";
         html += "</div>";
 
         html += "<div class='card'>";
-        html += "<a class='button' href='/wifi'>Wi-Fi Settings</a>";
-        html += "<a class='button secondary' href='/update'>Firmware Update</a>";
+        html += "<p><b>Resistance</b></p>";
+        html += "<p style='font-size:36px' id='resistance'>-- %</p>";
+        html += "</div>";
+
+        html += "<div class='card'>";
+        html += "<a class='button secondary' href='/settings'>Settings</a>";
         html += "</div>";
 
         html += pageFooter();
         r->send(200, "text/html", html);
     });
 
-    /* ===== Wi-Fi setup page ===== */
-    server.on("/wifi", HTTP_GET, [](AsyncWebServerRequest *r) {
-        String html = pageHeader("Wi-Fi Setup");
+    /* ===== Settings Page ===== */
+    server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *r) {
+
+        String html = pageHeader("Settings");
 
         html += "<div class='card'>";
         if (wifiSTAConnected()) {
-            html += "<p><b>Connected</b></p>";
+            html += "<p><b>Connected to Wi-Fi</b></p>";
             html += "<p>IP: " + wifiSTAIP() + "</p>";
             html +=
                 "<form method='POST' action='/wifi/disconnect'>"
@@ -82,7 +93,8 @@ void webServerInit() {
         html += "</div>";
 
         html += "<div class='card'>";
-        html += "<a class='button secondary' href='/'>Back</a>";
+        html += "<a class='button secondary' href='/update'>Firmware Update</a>";
+        html += "<a class='button secondary' href='/'>Back to Bike</a>";
         html += "</div>";
 
         html += pageFooter();
@@ -98,18 +110,22 @@ void webServerInit() {
                             : "";
             wifiConnect(ssid, pass);
         }
-        r->redirect("/wifi");
+        r->redirect("/settings");
     });
 
     /* ===== Wi-Fi disconnect ===== */
     server.on("/wifi/disconnect", HTTP_POST, [](AsyncWebServerRequest *r) {
         wifiDisconnectSTA();
-        r->redirect("/wifi");
+        r->redirect("/settings");
     });
 
-    /* ===== Captive portal fallback ===== */
+    /* ===== Captive Portal / Fallback ===== */
     server.onNotFound([](AsyncWebServerRequest *r) {
-        r->redirect("/");
+        if (!wifiHasSavedCredentials()) {
+            r->redirect("/settings");
+        } else {
+            r->redirect("/");
+        }
     });
 
     server.begin();
