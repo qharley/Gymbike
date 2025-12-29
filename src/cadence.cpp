@@ -1,21 +1,14 @@
-#include <Arduino.h>
 #include "cadence.h"
 #include "config.h"
+#include <Arduino.h>
 
-volatile uint32_t lastPulseMicros = 0;
-volatile uint32_t pulseIntervalMicros = 0;
-
-static float cadenceFiltered = 0;
+volatile unsigned long lastPulse = 0;
+volatile unsigned long pulseInterval = 0;
 
 void IRAM_ATTR cadenceISR() {
-    uint32_t now = micros();
-    uint32_t interval = now - lastPulseMicros;
-
-    // Reject impossible speeds (>300 RPM)
-    if (interval > 20000) {
-        pulseIntervalMicros = interval;
-        lastPulseMicros = now;
-    }
+    unsigned long now = micros();
+    pulseInterval = now - lastPulse;
+    lastPulse = now;
 }
 
 void cadenceInit() {
@@ -23,22 +16,8 @@ void cadenceInit() {
     attachInterrupt(digitalPinToInterrupt(CADENCE_PIN), cadenceISR, FALLING);
 }
 
-void updateCadence() {
-    uint32_t interval;
-
-    noInterrupts();
-    interval = pulseIntervalMicros;
-    interrupts();
-
-    float rpm = 0;
-    if (interval > 0 && micros() - lastPulseMicros < 2000000) {
-        rpm = 60.0e6 / interval;
-    }
-
-    // Low-pass filter
-    cadenceFiltered = cadenceFiltered * 0.8 + rpm * 0.2;
-}
-
-float getCadenceRPM() {
-    return cadenceFiltered;
+int getCadenceRPM() {
+    if (pulseInterval == 0) return 0;
+    float rpm = 60000000.0 / pulseInterval;
+    return rpm > 200 ? 0 : rpm;
 }
