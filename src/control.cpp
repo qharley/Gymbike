@@ -12,15 +12,35 @@ ControlMode controlMode = MODE_CADENCE;
 float kp = 1.2, ki = 0.02, kd = 0.0;
 float integral = 0, lastError = 0;
 
+unsigned long lastCadenceTime = 0;
+
 int servoPos = 90;
 
 void controlInit() {
     brakeServo.attach(SERVO_PIN);
     brakeServo.write(servoPos);
+    pinMode(EMERGENCY_PIN, INPUT_PULLUP);
+
 }
 
 void controlLoop() {
+    if (digitalRead(EMERGENCY_PIN) == LOW) {
+    servoPos = SERVO_MIN;
+        brakeServo.write(servoPos);
+        return;
+    }
+
+
     int cadence = getCadenceRPM();
+
+    if (millis() - lastCadenceTime > CADENCE_TIMEOUT_MS) {
+        servoPos = SERVO_MIN; // release resistance
+        brakeServo.write(servoPos);
+        return;
+    }
+
+
+    if (cadence > 0) lastCadenceTime = millis();
 
     if (controlMode == MODE_MANUAL) {
         servoPos = manualServo;

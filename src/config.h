@@ -6,6 +6,8 @@
 #define SERVO_PIN 25
 #define SERVO_MIN 20
 #define SERVO_MAX 160
+#define EMERGENCY_PIN 26
+
 
 #define CADENCE_PIN 34
 #define CADENCE_TIMEOUT_MS 2000

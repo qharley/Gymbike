@@ -64,9 +64,19 @@ setInterval(() => {
             kp = r->getParam("kp", true)->value().toFloat();
         if (r->hasParam("ki", true))
             ki = r->getParam("ki", true)->value().toFloat();
+        if (r->hasParam("cad", true))
+            targetCadence = r->getParam("cad", true)->value().toInt();
+
+saveControlConfig();
+    
 
         r->send(200, "text/plain", "Saved");
     });
+
+    server.onNotFound([](AsyncWebServerRequest *request) {
+        request->redirect("/");
+    });
+
 
     server.begin();
 }

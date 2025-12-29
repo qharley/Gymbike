@@ -3,8 +3,11 @@
 #include "web_server.h"
 #include "cadence.h"
 #include "control.h"
+#include "storage.h"
+#include "captive_portal.h"
 
 void setup() {
+    loadControlConfig();
     wifiInit();
     cadenceInit();
     controlInit();
@@ -12,6 +15,8 @@ void setup() {
 }
 
 void loop() {
+    captivePortalLoop();
     controlLoop();
-    delay(20); // 50 Hz control loop
+    delay(20);
 }
+

@@ -1,6 +1,7 @@
 #include "wifi_manager.h"
 #include "config.h"
 #include "storage.h"
+#include "captive_portal.h"
 #include <Preferences.h>
 
 void wifiInit() {
@@ -12,6 +13,7 @@ void wifiInit() {
     // Always start AP
     String apName = String(AP_SSID_PREFIX) + "-" + String((uint32_t)ESP.getEfuseMac(), HEX);
     WiFi.softAP(apName.c_str(), AP_PASSWORD);
+    captivePortalInit();
 
     // Try STA if credentials exist
     if (ssid.length() > 0) {
