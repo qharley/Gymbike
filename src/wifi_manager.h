@@ -2,5 +2,9 @@
 #include <WiFi.h>
 
 void wifiInit();
-bool wifiIsConnected();
-String wifiIP();
+void wifiConnect(const String& ssid, const String& pass);
+void wifiDisconnectSTA();
+
+bool wifiSTAConnected();
+String wifiSTAIP();
+String wifiAPIP();

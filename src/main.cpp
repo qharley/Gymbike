@@ -5,6 +5,7 @@
 #include "control.h"
 #include "storage.h"
 #include "captive_portal.h"
+#include "ota.h"
 
 void setup() {
     loadControlConfig();
@@ -12,6 +13,7 @@ void setup() {
     cadenceInit();
     controlInit();
     webServerInit();
+    otaInit();
 }
 
 void loop() {
