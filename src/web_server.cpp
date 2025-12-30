@@ -2,6 +2,9 @@
 #include <ESPAsyncWebServer.h>
 #include <WiFi.h>
 #include "wifi_manager.h"
+#include "control.h"
+#include "cadence.h"
+#include <ArduinoJson.h>
 
 // Forward declaration if not in wifi_manager.h
 bool wifiHasSavedCredentials();
@@ -25,6 +28,8 @@ static String pageHeader(const String& title) {
     "button.secondary,a.secondary{background:#666;}"
     "input{width:100%;padding:12px;font-size:16px;margin-top:6px;border-radius:6px;border:1px solid #ccc;}"
     "p{font-size:16px;}"
+    ".readout{text-align:center;font-size:36px;margin:10px 0;}"
+    ".readout-large{text-align:center;font-size:48px;margin:10px 0;font-weight:bold;}"
     "</style></head><body>"
     "<header>" + title + "</header>";
 }
@@ -49,20 +54,121 @@ void webServerInit() {
 
         html += "<div class='card'>";
         html += "<p><b>Cadence</b></p>";
-        html += "<p style='font-size:36px' id='cadence'>-- rpm</p>";
+        html += "<p class='readout-large' id='cadence'>-- rpm</p>";
+        html += "</div>";
+
+        html += "<div class='card'>";
+        html += "<p><b>Control Mode</b></p>";
+        html += "<p id='mode' style='text-align:center;'>--</p>";
+        html += "<p style='font-size:14px;color:#666;text-align:center;' id='target-info'>--</p>";
+        html += "<button onclick='setMode(0)'>Manual</button>";
+        html += "<button onclick='setMode(1)'>Cadence</button>";
+        html += "<button onclick='setMode(2)'>ERG</button>";
         html += "</div>";
 
         html += "<div class='card'>";
         html += "<p><b>Resistance</b></p>";
-        html += "<p style='font-size:36px' id='resistance'>-- %</p>";
+        html += "<p class='readout' id='resistance'>-- %</p>";
+        html += "<p style='font-size:12px;color:#666;text-align:center;' id='servo-debug'>Servo: -- | Target: --</p>";
+        html += "<button onclick='adjustResistance(-10)'>- 10%</button>";
+        html += "<button onclick='adjustResistance(-5)'>- 5%</button>";
+        html += "<button onclick='adjustResistance(5)'>+ 5%</button>";
+        html += "<button onclick='adjustResistance(10)'>+ 10%</button>";
         html += "</div>";
 
         html += "<div class='card'>";
         html += "<a class='button secondary' href='/settings'>Settings</a>";
         html += "</div>";
 
+        html += "<script>";
+        html += "function setMode(m){fetch('/api/mode?mode='+m).then(updateStatus);}";
+        html += "function adjustResistance(d){fetch('/api/resistance?delta='+d).then(updateStatus);}";
+        html += "function updateStatus(){fetch('/api/status').then(r=>r.json()).then(d=>{";
+        html += "document.getElementById('cadence').innerText=d.cadence+' rpm';";
+        html += "document.getElementById('resistance').innerText=d.resistance+' %';";
+        html += "document.getElementById('servo-debug').innerText='Servo: '+d.servo+'° | Target: '+d.targetCadence+'°';";
+        html += "let modes=['Manual','Cadence','ERG'];";
+        html += "document.getElementById('mode').innerText=modes[d.mode];";
+        html += "let info='';";
+        html += "if(d.mode==1)info='Target: '+d.targetCadence+' rpm';";
+        html += "if(d.mode==2)info='Target: '+d.targetWatts+' W';";
+        html += "document.getElementById('target-info').innerText=info;";
+        html += "});}";
+        html += "setInterval(updateStatus,1000);updateStatus();";
+        html += "</script>";
+
         html += pageFooter();
         r->send(200, "text/html", html);
+    });
+
+    /* ===== API: Get Status ===== */
+    server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *r) {
+        JsonDocument doc;
+        doc["cadence"] = getCadenceRPM();
+        doc["mode"] = (int)controlMode;
+        
+        int currentPos = getServoPosition();
+        int resistance = map(currentPos, SERVO_MIN, SERVO_MAX, 0, 100);
+        resistance = constrain(resistance, 0, 100);
+        doc["resistance"] = resistance;
+        doc["servo"] = currentPos;
+        doc["targetCadence"] = targetCadence;
+        doc["targetWatts"] = targetWatts;
+        
+        String output;
+        serializeJson(doc, output);
+        r->send(200, "application/json", output);
+    });
+
+    /* ===== API: Set Mode ===== */
+    server.on("/api/mode", HTTP_GET, [](AsyncWebServerRequest *r) {
+        if (r->hasParam("mode")) {
+            int mode = r->getParam("mode")->value().toInt();
+            if (mode >= 0 && mode <= 2) {
+                ControlMode newMode = (ControlMode)mode;
+                
+                // Smooth mode transition
+                if (newMode == MODE_MANUAL) {
+                    manualServo = getServoPosition(); // Keep current position
+                    resetPID();
+                } else if (controlMode == MODE_MANUAL && newMode == MODE_CADENCE) {
+                    resetPID(); // Reset PID when entering cadence mode
+                }
+                
+                controlMode = newMode;
+            }
+        }
+        r->send(200, "text/plain", "OK");
+    });
+
+    /* ===== API: Adjust Resistance ===== */
+    server.on("/api/resistance", HTTP_GET, [](AsyncWebServerRequest *r) {
+        if (r->hasParam("delta")) {
+            // Automatically switch to manual mode if not already
+            if (controlMode != MODE_MANUAL) {
+                controlMode = MODE_MANUAL;
+                manualServo = getServoPosition();
+                resetPID();
+            }
+            
+            int delta = r->getParam("delta")->value().toInt();
+            int current = map(getServoPosition(), SERVO_MIN, SERVO_MAX, 0, 100);
+            current = constrain(current, 0, 100);
+            int newValue = constrain(current + delta, 0, 100);
+            int newServo = map(newValue, 0, 100, SERVO_MIN, SERVO_MAX);
+            
+            setManualServo(newServo);
+        }
+        r->send(200, "text/plain", "OK");
+    });
+
+    /* ===== API: Set Target Cadence ===== */
+    server.on("/api/target", HTTP_GET, [](AsyncWebServerRequest *r) {
+        if (r->hasParam("cadence")) {
+            int cadence = r->getParam("cadence")->value().toInt();
+            setTargetCadence(cadence);
+        }
+        r->send(200, "text/plain", "OK");
     });
 
     /* ===== Settings Page ===== */

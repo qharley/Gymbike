@@ -6,11 +6,13 @@
 #include "storage.h"
 #include "captive_portal.h"
 #include "ota.h"
+#include "rotary_encoder.h"
 
 void setup() {
     loadControlConfig();
     wifiInit();
     cadenceInit();
+    encoderInit();
     controlInit();
     webServerInit();
     otaInit();
@@ -18,6 +20,7 @@ void setup() {
 
 void loop() {
     captivePortalLoop();
+    encoderLoop();
     controlLoop();
     delay(20);
 }
