@@ -22,8 +22,10 @@ static String pageHeader(const String& title) {
     "<style>"
     "*{margin:0;padding:0;box-sizing:border-box;}"
     "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a1a;color:#fff;height:100vh;display:flex;flex-direction:column;}"
-    "header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:20px;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,0.3);}"
+    "header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:20px;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,0.3);position:relative;}"
     "header h1{font-size:28px;font-weight:600;letter-spacing:0.5px;}"
+    ".wake-indicator{position:absolute;top:20px;right:20px;font-size:12px;color:rgba(255,255,255,0.7);display:none;}"
+    ".wake-indicator.active{display:block;}"
     ".container{flex:1;overflow-y:auto;padding:16px;max-width:1200px;width:100%;margin:0 auto;}"
     ".grid{display:grid;grid-template-columns:1fr;gap:16px;height:100%;}"
     "@media(min-width:768px){.grid{grid-template-columns:repeat(2,1fr);}.grid-full{grid-column:1/-1;}}"
@@ -44,7 +46,7 @@ static String pageHeader(const String& title) {
     "input:focus{outline:none;border-color:#667eea;}"
     ".settings-card{background:#2a2a2a;border-radius:16px;padding:24px;margin-bottom:16px;}"
     "</style></head><body>"
-    "<header><h1>" + title + "</h1></header>"
+    "<header><h1>" + title + "</h1><div class='wake-indicator' id='wake-status'>&#128293; Screen Awake</div></header>"
     "<div class='container'>";
 }
 
@@ -98,6 +100,33 @@ void webServerInit() {
         html += "</div>"; // end grid
 
         html += "<script>";
+        html += "let wakeLock=null;";
+        html += "async function requestWakeLock(){";
+        html += "if(!('wakeLock' in navigator)){";
+        html += "console.log('Wake Lock API not supported');";
+        html += "return;";
+        html += "}";
+        html += "try{";
+        html += "wakeLock=await navigator.wakeLock.request('screen');";
+        html += "document.getElementById('wake-status').classList.add('active');";
+        html += "console.log('Wake Lock acquired');";
+        html += "wakeLock.addEventListener('release',()=>{";
+        html += "console.log('Wake Lock released');";
+        html += "document.getElementById('wake-status').classList.remove('active');";
+        html += "});";
+        html += "}catch(err){";
+        html += "console.error('Wake Lock error:',err.name,err.message);";
+        html += "}";
+        html += "}";
+        html += "document.addEventListener('visibilitychange',()=>{";
+        html += "if(document.visibilityState==='visible'){";
+        html += "requestWakeLock();";
+        html += "}";
+        html += "});";
+        html += "window.addEventListener('click',()=>{";
+        html += "if(wakeLock===null){requestWakeLock();}";
+        html += "},{once:true});";
+        html += "setTimeout(requestWakeLock,500);";
         html += "function updateStatus(){fetch('/api/status').then(r=>r.json()).then(d=>{";
         html += "document.getElementById('cadence').innerHTML=d.cadence+'<span class=\"card-unit\">rpm</span>';";
         html += "document.getElementById('resistance').innerHTML=d.resistance+'<span class=\"card-unit\">%</span>';";
