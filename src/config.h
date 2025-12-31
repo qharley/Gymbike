@@ -41,6 +41,11 @@
 #define TFT_RST 16
 #define TFT_BL 4  // Backlight pin (optional)
 
+// XPT2046 Touch Controller (shares SPI bus with TFT)
+// Reserved for future development
+#define TP_CS 15   // Touch controller chip select
+#define TP_IRQ 2   // Touch controller interrupt
+
 enum ControlMode {
     MODE_MANUAL,
     MODE_CADENCE,
