@@ -8,6 +8,9 @@
 #define SERVO_MAX 175
 #define EMERGENCY_PIN 26
 
+// Set a flag to disable the emergency pin
+//#define DISABLE_EMERGENCY_PIN
+
 
 #define CADENCE_PIN 34
 #define CADENCE_TIMEOUT_MS 2000

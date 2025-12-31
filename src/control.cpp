@@ -150,7 +150,9 @@ void handleReset() {
 
 void controlInit() {
     brakeServo.attach(SERVO_PIN);
+#ifndef DISABLE_EMERGENCY_PIN
     pinMode(EMERGENCY_PIN, INPUT_PULLUP);
+#endif
     
     servoPos = SERVO_MIN;
     targetServoPos = SERVO_MIN;
@@ -212,6 +214,7 @@ void controlLoop() {
     }
     
     // Emergency stop check
+#ifndef DISABLE_EMERGENCY_PIN
     if (digitalRead(EMERGENCY_PIN) == LOW) {
         servoPos = SERVO_MIN;
         targetServoPos = SERVO_MIN;
@@ -219,6 +222,7 @@ void controlLoop() {
         resetPID();
         return;
     }
+#endif
     
     int currentCadence = getCadenceRPM();
     
