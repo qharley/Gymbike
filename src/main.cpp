@@ -8,6 +8,7 @@
 #include "ota.h"
 #include "rotary_encoder.h"
 #include "buttons.h"
+#include "display.h"
 
 void setup() {
     Serial.begin(115200);
@@ -20,6 +21,8 @@ void setup() {
     Serial.println();
     
     loadControlConfig();
+    displayInit();
+    Serial.println("[OK] Display initialized");
     wifiInit();
     cadenceInit();
     encoderInit();
@@ -33,14 +36,23 @@ void setup() {
 
 unsigned long lastStatusPrint = 0;
 const unsigned long STATUS_INTERVAL = 5000; // Print status every 5 seconds
+unsigned long lastDisplayUpdate = 0;
+const unsigned long DISPLAY_INTERVAL = 200; // Update display every 200ms
 
 void loop() {
     captivePortalLoop();
     encoderLoop();
     controlLoop();
     
-    // Periodic status output for testing
     unsigned long now = millis();
+    
+    // Update display
+    if (now - lastDisplayUpdate >= DISPLAY_INTERVAL) {
+        displayUpdate();
+        lastDisplayUpdate = now;
+    }
+    
+    // Periodic status output for testing
     if (now - lastStatusPrint >= STATUS_INTERVAL) {
         lastStatusPrint = now;
         

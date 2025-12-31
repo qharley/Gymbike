@@ -22,6 +22,25 @@
 #define BTN_REST_PIN 12
 #define BTN_RESET_PIN 13
 
+// TFT Display (480x320 SPI)
+// Note: TFT_WIDTH and TFT_HEIGHT are defined in platformio.ini build flags
+#ifndef TFT_WIDTH
+#define TFT_WIDTH 480
+#endif
+#ifndef TFT_HEIGHT
+#define TFT_HEIGHT 320
+#endif
+#define TFT_ROTATION 1  // Landscape mode
+
+// SPI pins for display (use VSPI)
+#define TFT_MOSI 23
+#define TFT_MISO 19
+#define TFT_SCLK 18
+#define TFT_CS 5
+#define TFT_DC 17
+#define TFT_RST 16
+#define TFT_BL 4  // Backlight pin (optional)
+
 enum ControlMode {
     MODE_MANUAL,
     MODE_CADENCE,
