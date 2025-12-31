@@ -17,6 +17,11 @@
 #define ENCODER_DT_PIN 33
 #define ENCODER_SW_PIN 27  // Optional button press
 
+// Physical button pins
+#define BTN_START_STOP_PIN 14
+#define BTN_REST_PIN 12
+#define BTN_RESET_PIN 13
+
 enum ControlMode {
     MODE_MANUAL,
     MODE_CADENCE,

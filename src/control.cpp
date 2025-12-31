@@ -1,6 +1,7 @@
 #include "control.h"
 #include "cadence.h"
 #include "rotary_encoder.h"
+#include "buttons.h"
 #include <ESP32Servo.h>
 
 Servo brakeServo;
@@ -10,6 +11,12 @@ int targetCadence = 80;
 int targetWatts = 150;
 int manualServo = SERVO_MIN;
 ControlMode controlMode = MODE_MANUAL;
+
+// Workout state tracking
+WorkoutState workoutState = WORKOUT_STOPPED;
+unsigned long workoutStartTime = 0;
+unsigned long workoutElapsedTime = 0;
+unsigned long restStartTime = 0;
 
 // PID parameters - tunable
 float kp = 0.5;
@@ -61,6 +68,86 @@ void setManualServo(int position) {
     }
 }
 
+void handleStartStop() {
+    Serial.print("[BUTTON] Start/Stop pressed - ");
+    if (workoutState == WORKOUT_STOPPED) {
+        // Start workout
+        workoutState = WORKOUT_RUNNING;
+        workoutStartTime = millis();
+        workoutElapsedTime = 0;
+        resetPID();
+        Serial.println("Starting workout");
+    } else if (workoutState == WORKOUT_RUNNING) {
+        // Stop workout
+        workoutElapsedTime += millis() - workoutStartTime;
+        workoutState = WORKOUT_STOPPED;
+        // Release brake when stopping
+        servoPos = SERVO_MIN;
+        targetServoPos = SERVO_MIN;
+        brakeServo.write(servoPos);
+        resetPID();
+        Serial.print("Stopping workout | Total time: ");
+        Serial.print(workoutElapsedTime / 1000);
+        Serial.println(" seconds");
+    } else if (workoutState == WORKOUT_RESTING) {
+        // Resume workout from rest
+        workoutState = WORKOUT_RUNNING;
+        workoutStartTime = millis();
+        resetPID();
+        Serial.println("Resuming from rest");
+    }
+}
+
+void handleRest() {
+    Serial.print("[BUTTON] Rest pressed - ");
+    if (workoutState == WORKOUT_RUNNING) {
+        // Pause for rest
+        workoutElapsedTime += millis() - workoutStartTime;
+        workoutState = WORKOUT_RESTING;
+        restStartTime = millis();
+        // Reduce brake during rest
+        targetServoPos = SERVO_MIN;
+        resetPID();
+        Serial.println("Entering rest mode");
+    } else if (workoutState == WORKOUT_RESTING) {
+        // Resume from rest
+        workoutState = WORKOUT_RUNNING;
+        workoutStartTime = millis();
+        resetPID();
+        unsigned long restDuration = (millis() - restStartTime) / 1000;
+        Serial.print("Resuming from rest | Rest duration: ");
+        Serial.print(restDuration);
+        Serial.println(" seconds");
+    } else {
+        Serial.println("Cannot rest (workout not running)");
+    }
+}
+
+void handleReset() {
+    Serial.println("[BUTTON] Reset pressed - Resetting all workout data");
+    
+    // Reset all workout tracking
+    workoutState = WORKOUT_STOPPED;
+    workoutElapsedTime = 0;
+    workoutStartTime = 0;
+    restStartTime = 0;
+    
+    // Reset servo to minimum position
+    servoPos = SERVO_MIN;
+    targetServoPos = SERVO_MIN;
+    brakeServo.write(servoPos);
+    
+    // Reset PID
+    resetPID();
+    
+    // Reset targets to defaults
+    targetCadence = 80;
+    targetWatts = 150;
+    manualServo = SERVO_MIN;
+    
+    Serial.println("  -> Workout reset complete");
+}
+
 void controlInit() {
     brakeServo.attach(SERVO_PIN);
     pinMode(EMERGENCY_PIN, INPUT_PULLUP);
@@ -77,6 +164,17 @@ void controlInit() {
 
 void controlLoop() {
     unsigned long now = millis();
+    
+    // Handle physical button presses
+    if (buttonWasPressed(BTN_START_STOP)) {
+        handleStartStop();
+    }
+    if (buttonWasPressed(BTN_REST)) {
+        handleRest();
+    }
+    if (buttonWasPressed(BTN_RESET)) {
+        handleReset();
+    }
     
     // Handle rotary encoder input
     int encoderDelta = getEncoderDelta();
@@ -129,8 +227,13 @@ void controlLoop() {
         lastCadenceTime = now;
     }
     
+    // If workout is stopped or resting, release brake
+    if (workoutState == WORKOUT_STOPPED || workoutState == WORKOUT_RESTING) {
+        targetServoPos = SERVO_MIN;
+        resetPID();
+    }
     // Safety: Release brake if no cadence detected for timeout period
-    if (now - lastCadenceTime > CADENCE_TIMEOUT_MS) {
+    else if (now - lastCadenceTime > CADENCE_TIMEOUT_MS) {
         targetServoPos = SERVO_MIN;
         integral = 0;
         lastError = 0;
