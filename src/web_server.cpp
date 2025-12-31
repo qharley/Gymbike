@@ -70,10 +70,20 @@ void webServerInit() {
 
         html += "<div class='grid'>";
         
-        // Cadence - Large prominent display
+        // Workout Status
         html += "<div class='card grid-full'>";
+        html += "<div class='card-title'>Workout Status</div>";
+        html += "<div style='text-align:center;margin:20px 0;'>";
+        html += "<span class='badge' id='workout-state'>Stopped</span>";
+        html += "</div>";
+        html += "<div class='card-value' id='workout-timer'>00:00</div>";
+        html += "<div class='card-meta' id='rest-info'>&nbsp;</div>";
+        html += "</div>";
+        
+        // Cadence - Large prominent display
+        html += "<div class='card'>";
         html += "<div class='card-title'>Current Cadence</div>";
-        html += "<div class='card-value large' id='cadence'>--</div>";
+        html += "<div class='card-value' id='cadence'>--</div>";
         html += "</div>";
 
         // Control Mode
@@ -127,6 +137,13 @@ void webServerInit() {
         html += "if(wakeLock===null){requestWakeLock();}";
         html += "},{once:true});";
         html += "setTimeout(requestWakeLock,500);";
+        html += "function formatTime(seconds){";
+        html += "let h=Math.floor(seconds/3600);";
+        html += "let m=Math.floor((seconds%3600)/60);";
+        html += "let s=seconds%60;";
+        html += "if(h>0)return h+':'+(m<10?'0':'')+m+':'+(s<10?'0':'')+s;";
+        html += "return m+':'+(s<10?'0':'')+s;";
+        html += "}";
         html += "function updateStatus(){fetch('/api/status').then(r=>r.json()).then(d=>{";
         html += "document.getElementById('cadence').innerHTML=d.cadence+'<span class=\"card-unit\">rpm</span>';";
         html += "document.getElementById('resistance').innerHTML=d.resistance+'<span class=\"card-unit\">%</span>';";
@@ -137,6 +154,16 @@ void webServerInit() {
         html += "if(d.mode==1)info='Target: '+d.targetCadence+' rpm';";
         html += "if(d.mode==2)info='Target: '+d.targetWatts+' W';";
         html += "document.getElementById('target-info').innerHTML=info||'&nbsp;';";
+        html += "let states=['Stopped','Running','Resting'];";
+        html += "let stateColors=['#999','#4ade80','#fbbf24'];";
+        html += "let stateBadge=document.getElementById('workout-state');";
+        html += "stateBadge.innerText=states[d.workoutState];";
+        html += "stateBadge.style.borderColor=stateColors[d.workoutState];";
+        html += "stateBadge.style.color=stateColors[d.workoutState];";
+        html += "document.getElementById('workout-timer').innerHTML=formatTime(d.workoutTime)+'<span class=\"card-unit\">time</span>';";
+        html += "let restInfo='';";
+        html += "if(d.workoutState==2&&d.restTime)restInfo='Rest: '+formatTime(d.restTime);";
+        html += "document.getElementById('rest-info').innerHTML=restInfo||'&nbsp;';";
         html += "}).catch(e=>console.error(e));}";
         html += "setInterval(updateStatus,1000);updateStatus();";
         html += "</script>";
@@ -158,6 +185,20 @@ void webServerInit() {
         doc["servo"] = currentPos;
         doc["targetCadence"] = targetCadence;
         doc["targetWatts"] = targetWatts;
+        
+        // Workout state and timer
+        doc["workoutState"] = (int)workoutState;
+        unsigned long currentTime = millis();
+        unsigned long totalElapsed = workoutElapsedTime;
+        
+        if (workoutState == WORKOUT_RUNNING) {
+            totalElapsed += (currentTime - workoutStartTime);
+        } else if (workoutState == WORKOUT_RESTING) {
+            // Show rest duration
+            doc["restTime"] = (currentTime - restStartTime) / 1000;
+        }
+        
+        doc["workoutTime"] = totalElapsed / 1000; // Convert to seconds
         
         String output;
         serializeJson(doc, output);
