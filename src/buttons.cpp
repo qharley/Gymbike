@@ -4,7 +4,9 @@
 // Button state tracking
 volatile bool buttonFlags[3] = {false, false, false};
 volatile unsigned long lastButtonPress[3] = {0, 0, 0};
-const unsigned long BUTTON_DEBOUNCE_MS = 200;
+volatile bool lastButtonState[3] = {HIGH, HIGH, HIGH};
+const unsigned long BUTTON_DEBOUNCE_MS = 50;  // Hardware debounce time
+const unsigned long BUTTON_LOCKOUT_MS = 300;   // Prevent double-trigger
 
 // Button pin mapping
 const uint8_t buttonPins[3] = {
@@ -16,26 +18,44 @@ const uint8_t buttonPins[3] = {
 // ISR handlers for each button
 void IRAM_ATTR startStopButtonISR() {
     unsigned long now = millis();
-    if (now - lastButtonPress[BTN_START_STOP] > BUTTON_DEBOUNCE_MS) {
+    bool currentState = digitalRead(BTN_START_STOP_PIN);
+    
+    // Check if enough time has passed and button is actually pressed (LOW)
+    if (now - lastButtonPress[BTN_START_STOP] > BUTTON_LOCKOUT_MS && 
+        currentState == LOW && 
+        lastButtonState[BTN_START_STOP] == HIGH) {
         buttonFlags[BTN_START_STOP] = true;
         lastButtonPress[BTN_START_STOP] = now;
     }
+    lastButtonState[BTN_START_STOP] = currentState;
 }
 
 void IRAM_ATTR restButtonISR() {
     unsigned long now = millis();
-    if (now - lastButtonPress[BTN_REST] > BUTTON_DEBOUNCE_MS) {
+    bool currentState = digitalRead(BTN_REST_PIN);
+    
+    // Check if enough time has passed and button is actually pressed (LOW)
+    if (now - lastButtonPress[BTN_REST] > BUTTON_LOCKOUT_MS && 
+        currentState == LOW && 
+        lastButtonState[BTN_REST] == HIGH) {
         buttonFlags[BTN_REST] = true;
         lastButtonPress[BTN_REST] = now;
     }
+    lastButtonState[BTN_REST] = currentState;
 }
 
 void IRAM_ATTR resetButtonISR() {
     unsigned long now = millis();
-    if (now - lastButtonPress[BTN_RESET] > BUTTON_DEBOUNCE_MS) {
+    bool currentState = digitalRead(BTN_RESET_PIN);
+    
+    // Check if enough time has passed and button is actually pressed (LOW)
+    if (now - lastButtonPress[BTN_RESET] > BUTTON_LOCKOUT_MS && 
+        currentState == LOW && 
+        lastButtonState[BTN_RESET] == HIGH) {
         buttonFlags[BTN_RESET] = true;
         lastButtonPress[BTN_RESET] = now;
     }
+    lastButtonState[BTN_RESET] = currentState;
 }
 
 void buttonsInit() {
@@ -44,10 +64,18 @@ void buttonsInit() {
     pinMode(BTN_REST_PIN, INPUT_PULLUP);
     pinMode(BTN_RESET_PIN, INPUT_PULLUP);
     
-    // Attach interrupts on FALLING edge (button press)
-    attachInterrupt(digitalPinToInterrupt(BTN_START_STOP_PIN), startStopButtonISR, FALLING);
-    attachInterrupt(digitalPinToInterrupt(BTN_REST_PIN), restButtonISR, FALLING);
-    attachInterrupt(digitalPinToInterrupt(BTN_RESET_PIN), resetButtonISR, FALLING);
+    // Initialize button states
+    lastButtonState[BTN_START_STOP] = digitalRead(BTN_START_STOP_PIN);
+    lastButtonState[BTN_REST] = digitalRead(BTN_REST_PIN);
+    lastButtonState[BTN_RESET] = digitalRead(BTN_RESET_PIN);
+    
+    // Small delay to let pins stabilize
+    delay(50);
+    
+    // Attach interrupts on CHANGE (both press and release) for better debouncing
+    attachInterrupt(digitalPinToInterrupt(BTN_START_STOP_PIN), startStopButtonISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(BTN_REST_PIN), restButtonISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(BTN_RESET_PIN), resetButtonISR, CHANGE);
 }
 
 bool buttonWasPressed(ButtonType button) {

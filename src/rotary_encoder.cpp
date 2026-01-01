@@ -10,7 +10,9 @@ volatile unsigned long lastEncoderTime = 0;
 // Button state
 volatile bool buttonPressed = false;
 volatile unsigned long lastButtonTime = 0;
-const unsigned long BUTTON_DEBOUNCE_MS = 200;
+volatile bool lastEncoderButtonState = HIGH;
+const unsigned long BUTTON_DEBOUNCE_MS = 50;  // Hardware debounce time
+const unsigned long BUTTON_LOCKOUT_MS = 300;   // Prevent double-trigger
 
 // Encoder debouncing
 const unsigned long ENCODER_DEBOUNCE_MS = 5;
@@ -46,10 +48,16 @@ void IRAM_ATTR encoderISR() {
 
 void IRAM_ATTR buttonISR() {
     unsigned long now = millis();
-    if (now - lastButtonTime > BUTTON_DEBOUNCE_MS) {
+    bool currentState = digitalRead(ENCODER_SW_PIN);
+    
+    // Check if enough time has passed and button is actually pressed (LOW)
+    if (now - lastButtonTime > BUTTON_LOCKOUT_MS && 
+        currentState == LOW && 
+        lastEncoderButtonState == HIGH) {
         buttonPressed = true;
         lastButtonTime = now;
     }
+    lastEncoderButtonState = currentState;
 }
 
 void encoderInit() {
@@ -60,10 +68,14 @@ void encoderInit() {
     // Read initial states
     lastCLK = digitalRead(ENCODER_CLK_PIN);
     lastDT = digitalRead(ENCODER_DT_PIN);
+    lastEncoderButtonState = digitalRead(ENCODER_SW_PIN);
+    
+    // Small delay to let pins stabilize
+    delay(50);
     
     // Attach interrupts
     attachInterrupt(digitalPinToInterrupt(ENCODER_CLK_PIN), encoderISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(ENCODER_SW_PIN), buttonISR, FALLING);
+    attachInterrupt(digitalPinToInterrupt(ENCODER_SW_PIN), buttonISR, CHANGE);
 }
 
 void encoderLoop() {

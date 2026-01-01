@@ -19,9 +19,31 @@ void otaInit() {
         HTTP_POST,
         [](AsyncWebServerRequest *r) {
             bool ok = !Update.hasError();
-            r->send(200, "text/plain", ok ? "Update OK. Rebooting..." : "Update failed");
+            if (ok) {
+                r->send(200, "text/html",
+                    "<html><head>"
+                    "<meta http-equiv='refresh' content='15;url=/'>"
+                    "<style>body{font-family:Arial;text-align:center;padding:50px;}</style>"
+                    "</head><body>"
+                    "<h2>Update Successful!</h2>"
+                    "<p>Device is rebooting...</p>"
+                    "<p>You will be redirected to the main page in 15 seconds.</p>"
+                    "<p><a href='/'>Click here</a> if not redirected automatically.</p>"
+                    "</body></html>");
+            } else {
+                r->send(200, "text/html",
+                    "<html><head>"
+                    "<meta http-equiv='refresh' content='5;url=/update'>"
+                    "<style>body{font-family:Arial;text-align:center;padding:50px;}</style>"
+                    "</head><body>"
+                    "<h2>Update Failed!</h2>"
+                    "<p>Redirecting back to update page...</p>"
+                    "</body></html>");
+            }
             delay(1000);
-            ESP.restart();
+            if (ok) {
+                ESP.restart();
+            }
         },
         [](AsyncWebServerRequest *r, String filename, size_t index,
            uint8_t *data, size_t len, bool final) {

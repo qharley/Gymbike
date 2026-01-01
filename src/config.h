@@ -21,9 +21,9 @@
 #define ENCODER_SW_PIN 27  // Optional button press
 
 // Physical button pins
-#define BTN_START_STOP_PIN 14
-#define BTN_REST_PIN 12
-#define BTN_RESET_PIN 13
+#define BTN_START_STOP_PIN 12
+#define BTN_REST_PIN 13
+#define BTN_RESET_PIN 14
 
 // TFT Display (480x320 SPI)
 // Note: TFT_WIDTH and TFT_HEIGHT are defined in platformio.ini build flags

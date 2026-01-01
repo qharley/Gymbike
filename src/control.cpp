@@ -237,11 +237,11 @@ void controlLoop() {
         resetPID();
     }
     // Safety: Release brake if no cadence detected for timeout period
-    else if (now - lastCadenceTime > CADENCE_TIMEOUT_MS) {
+    /*else if (now - lastCadenceTime > CADENCE_TIMEOUT_MS) {
         targetServoPos = SERVO_MIN;
         integral = 0;
         lastError = 0;
-    } else {
+    } */else {
         // Normal operation based on mode
         switch (controlMode) {
             case MODE_MANUAL:
