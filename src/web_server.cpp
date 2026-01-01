@@ -16,7 +16,8 @@ AsyncWebServer server(80);
 
 /* ---------- Shared mobile-friendly page wrapper ---------- */
 
-static String pageHeader(const String& title) {
+static String pageHeader(const String& title, bool noScroll = false) {
+    String bodyClass = noScroll ? " class='no-scroll'" : "";
     return
     "<!DOCTYPE html><html><head>"
     "<meta charset='UTF-8'>"
@@ -25,23 +26,26 @@ static String pageHeader(const String& title) {
     "<title>" + title + "</title>"
     "<style>"
     "*{margin:0;padding:0;box-sizing:border-box;}"
-    "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a1a;color:#fff;height:100vh;display:flex;flex-direction:column;}"
-    "header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:20px;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,0.3);position:relative;}"
-    "header h1{font-size:28px;font-weight:600;letter-spacing:0.5px;}"
-    ".wake-indicator{position:absolute;top:20px;right:20px;font-size:12px;color:rgba(255,255,255,0.7);display:none;}"
+    "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a1a;color:#fff;min-height:100vh;display:flex;flex-direction:column;}"
+    "body.no-scroll{height:100vh;overflow:hidden;}"
+    "header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:12px 16px;box-shadow:0 2px 4px rgba(0,0,0,0.3);position:relative;display:flex;justify-content:space-between;align-items:center;}"
+    "header h1{font-size:20px;font-weight:600;letter-spacing:0.5px;margin:0;}"
+    ".settings-icon{font-size:24px;color:#fff;text-decoration:none;padding:8px;cursor:pointer;opacity:0.9;}"
+    ".settings-icon:hover{opacity:1;transform:rotate(90deg);transition:transform 0.3s;}"
+    ".wake-indicator{position:absolute;top:8px;right:50px;font-size:10px;color:rgba(255,255,255,0.7);display:none;}"
     ".wake-indicator.active{display:block;}"
-    ".container{flex:1;overflow-y:auto;padding:16px;max-width:1200px;width:100%;margin:0 auto;}"
-    ".grid{display:grid;grid-template-columns:1fr;gap:16px;height:100%;}"
-    "@media(min-width:768px){.grid{grid-template-columns:repeat(2,1fr);}.grid-full{grid-column:1/-1;}}"
-    ".card{background:#2a2a2a;border-radius:16px;padding:24px;box-shadow:0 8px 16px rgba(0,0,0,0.4);display:flex;flex-direction:column;justify-content:center;transition:transform 0.2s;}"
-    ".card:hover{transform:translateY(-2px);}"
-    ".card-title{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:12px;font-weight:600;}"
-    ".card-value{font-size:72px;font-weight:700;line-height:1;color:#fff;text-align:center;margin:16px 0;}"
-    ".card-value.large{font-size:96px;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}"
-    ".card-unit{font-size:24px;color:#999;font-weight:400;margin-left:8px;}"
-    ".card-subtitle{font-size:20px;color:#ddd;text-align:center;margin-top:8px;font-weight:600;}"
-    ".card-meta{font-size:14px;color:#666;text-align:center;margin-top:12px;font-family:monospace;}"
-    ".badge{display:inline-block;padding:8px 16px;background:rgba(102,126,234,0.2);border:2px solid #667eea;border-radius:20px;font-size:18px;font-weight:600;color:#667eea;text-transform:uppercase;letter-spacing:1px;}"
+    ".container{flex:1;overflow-y:auto;padding:8px;max-width:1200px;width:100%;margin:0 auto;display:flex;flex-direction:column;}"
+    "body.no-scroll .container{overflow:hidden;}"
+    ".grid{display:grid;grid-template-columns:1fr;gap:8px;flex:1;grid-template-rows:auto 1fr 1fr auto;}"
+    "@media(min-width:768px){.grid{grid-template-columns:repeat(2,1fr);grid-template-rows:auto 1fr auto;}.grid-full{grid-column:1/-1;}}"
+    ".card{background:#2a2a2a;border-radius:12px;padding:8px 12px;box-shadow:0 4px 8px rgba(0,0,0,0.4);display:flex;flex-direction:column;justify-content:center;min-height:0;}"
+    ".card-title{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#999;margin-bottom:4px;font-weight:600;}"
+    ".card-value{font-size:72px;font-weight:700;line-height:1;color:#fff;text-align:center;margin:4px 0;}"
+    ".card-value.large{font-size:90px;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}"
+    ".card-unit{font-size:20px;color:#999;font-weight:400;margin-left:4px;}"
+    ".card-subtitle{font-size:14px;color:#ddd;text-align:center;margin-top:4px;font-weight:600;}"
+    ".card-meta{font-size:10px;color:#666;text-align:center;margin-top:2px;font-family:monospace;}"
+    ".badge{display:inline-block;padding:6px 12px;background:rgba(102,126,234,0.2);border:2px solid #667eea;border-radius:16px;font-size:14px;font-weight:600;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;}"
     ".button{display:block;width:100%;padding:16px;font-size:16px;text-align:center;border-radius:12px;background:#667eea;color:white;text-decoration:none;border:none;font-weight:600;cursor:pointer;transition:all 0.2s;}"
     ".button:hover{background:#764ba2;transform:translateY(-2px);box-shadow:0 6px 12px rgba(102,126,234,0.3);}"
     ".button.secondary{background:#3a3a3a;}"
@@ -49,8 +53,8 @@ static String pageHeader(const String& title) {
     "input{width:100%;padding:14px;font-size:16px;margin-top:8px;border-radius:10px;border:2px solid #3a3a3a;background:#1a1a1a;color:#fff;}"
     "input:focus{outline:none;border-color:#667eea;}"
     ".settings-card{background:#2a2a2a;border-radius:16px;padding:24px;margin-bottom:16px;}"
-    "</style></head><body>"
-    "<header><h1>" + title + "</h1><div class='wake-indicator' id='wake-status'>&#128293; Screen Awake</div></header>"
+    "</style></head><body" + bodyClass + ">"
+    "<header><h1>" + title + "</h1><div class='wake-indicator' id='wake-status'>&#128293;</div><a href='/settings' class='settings-icon'>&#9881;</a></header>"
     "<div class='container'>";
 }
 
@@ -70,46 +74,37 @@ void webServerInit() {
             return;
         }
 
-        String html = pageHeader("Gym Bike");
+        String html = pageHeader("Gym Bike", true);
 
         html += "<div class='grid'>";
         
-        // Workout Status
-        html += "<div class='card grid-full'>";
-        html += "<div class='card-title'>Workout Status</div>";
-        html += "<div style='text-align:center;margin:20px 0;'>";
-        html += "<span class='badge' id='workout-state'>Stopped</span>";
-        html += "</div>";
-        html += "<div class='card-value' id='workout-timer'>00:00</div>";
-        html += "<div class='card-meta' id='rest-info'>&nbsp;</div>";
-        html += "</div>";
+        // Workout Status - compact
+        html += "<div class='card grid-full' style='padding:8px 12px;'>";
+        html += "<div style='display:flex;justify-content:space-between;align-items:center;'>";
+        html += "<span class='badge' id='workout-state' style='margin:0;'>Stopped</span>";
+        html += "<div style='text-align:right;'><div style='font-size:28px;font-weight:700;color:#fff;' id='workout-timer'>00:00</div>";
+        html += "<div style='font-size:10px;color:#666;' id='rest-info'>&nbsp;</div></div>";
+        html += "</div></div>";
         
         // Cadence - Large prominent display
         html += "<div class='card'>";
-        html += "<div class='card-title'>Current Cadence</div>";
+        html += "<div class='card-title'>Cadence</div>";
         html += "<div class='card-value' id='cadence'>--</div>";
-        html += "</div>";
-
-        // Control Mode
-        html += "<div class='card'>";
-        html += "<div class='card-title'>Control Mode</div>";
-        html += "<div style='text-align:center;margin:20px 0;'>";
-        html += "<span class='badge' id='mode'>--</span>";
-        html += "</div>";
-        html += "<div class='card-subtitle' id='target-info'>&nbsp;</div>";
         html += "</div>";
 
         // Resistance
         html += "<div class='card'>";
-        html += "<div class='card-title'>Resistance Level</div>";
+        html += "<div class='card-title'>Resistance</div>";
         html += "<div class='card-value' id='resistance'>--</div>";
         html += "<div class='card-meta' id='servo-debug'>Servo: --°</div>";
         html += "</div>";
 
-        // Settings button
-        html += "<div class='card grid-full' style='padding:16px;'>";
-        html += "<a class='button secondary' href='/settings'>&#9881; Settings</a>";
-        html += "</div>";
+        // Control Mode - bottom row
+        html += "<div class='card grid-full' style='padding:8px 12px;min-height:auto;'>";
+        html += "<div style='display:flex;justify-content:space-between;align-items:center;'>";
+        html += "<div><div class='card-title' style='margin:0 0 4px 0;'>Mode</div><span class='badge' id='mode' style='margin:0;font-size:12px;'>--</span></div>";
+        html += "<div class='card-subtitle' style='margin:0;font-size:16px;' id='target-info'>&nbsp;</div>";
+        html += "</div></div>";
 
         html += "</div>"; // end grid
 
@@ -164,7 +159,7 @@ void webServerInit() {
         html += "stateBadge.innerText=states[d.workoutState];";
         html += "stateBadge.style.borderColor=stateColors[d.workoutState];";
         html += "stateBadge.style.color=stateColors[d.workoutState];";
-        html += "document.getElementById('workout-timer').innerHTML=formatTime(d.workoutTime)+'<span class=\"card-unit\">time</span>';";
+        html += "document.getElementById('workout-timer').innerHTML=formatTime(d.workoutTime);";
         html += "let restInfo='';";
         html += "if(d.workoutState==2&&d.restTime)restInfo='Rest: '+formatTime(d.restTime);";
         html += "document.getElementById('rest-info').innerHTML=restInfo||'&nbsp;';";
