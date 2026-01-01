@@ -43,6 +43,7 @@ void loop() {
     captivePortalLoop();
     encoderLoop();
     controlLoop();
+    otaLoop();  // Handle ArduinoOTA
     
     unsigned long now = millis();
     

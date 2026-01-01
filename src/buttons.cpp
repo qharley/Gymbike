@@ -99,3 +99,10 @@ uint8_t getButtonStates() {
     }
     return states;
 }
+
+bool getRawButtonState(ButtonType button) {
+    if (button < 0 || button > 2) {
+        return HIGH;
+    }
+    return digitalRead(buttonPins[button]);
+}

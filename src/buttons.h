@@ -16,3 +16,6 @@ bool buttonWasPressed(ButtonType button);
 
 // Get the state of all buttons as a bitmask
 uint8_t getButtonStates();
+
+// Get raw button pin states (for troubleshooting)
+bool getRawButtonState(ButtonType button);

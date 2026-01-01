@@ -5,15 +5,15 @@
 
 #define SERVO_PIN 25
 #define SERVO_MIN 5
-#define SERVO_MAX 175
-#define EMERGENCY_PIN 26
+#define SERVO_MAX 140//175
+#define EMERGENCY_PIN 34
 
 // Set a flag to disable the emergency pin
 //#define DISABLE_EMERGENCY_PIN
 
 
-#define CADENCE_PIN 34
-#define CADENCE_TIMEOUT_MS 2000
+#define CADENCE_PIN 26
+#define CADENCE_TIMEOUT_MS 60000
 
 // Rotary encoder pins
 #define ENCODER_CLK_PIN 32

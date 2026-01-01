@@ -14,6 +14,7 @@ int getServoPosition();
 void setManualServo(int position);
 void setTargetCadence(int cadence);
 void resetPID();
+void resetCadenceTimer();
 
 // Button action handlers
 void handleStartStop();

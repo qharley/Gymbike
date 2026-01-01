@@ -4,6 +4,9 @@
 #include "wifi_manager.h"
 #include "control.h"
 #include "cadence.h"
+#include "buttons.h"
+#include "rotary_encoder.h"
+#include "config.h"
 #include <ArduinoJson.h>
 
 // Forward declaration if not in wifi_manager.h
@@ -18,6 +21,7 @@ static String pageHeader(const String& title) {
     "<!DOCTYPE html><html><head>"
     "<meta charset='UTF-8'>"
     "<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1'>"
+    "<link rel='icon' type='image/svg+xml' href='/favicon.svg'>"
     "<title>" + title + "</title>"
     "<style>"
     "*{margin:0;padding:0;box-sizing:border-box;}"
@@ -286,7 +290,16 @@ void webServerInit() {
 
         html += "<div class='settings-card'>";
         html += "<a class='button secondary' href='/update'>&#8635; Firmware Update</a>";
+        html += "<a class='button secondary' href='/input' style='margin-top:12px;'>&#128295; Input Troubleshooting</a>";
         html += "<a class='button secondary' href='/' style='margin-top:12px;'>&#8592; Back to Bike</a>";
+        html += "</div>";
+
+        html += "<div class='settings-card'>";
+        html += "<div class='card-title'>System Information</div>";
+        html += "<p style='margin:8px 0;font-size:14px;color:#999;'><strong>Version:</strong> " + String(BUILD_VERSION) + "</p>";
+        html += "<p style='margin:8px 0;font-size:14px;color:#999;'><strong>Build Date:</strong> " + String(BUILD_DATE) + " " + String(BUILD_TIME) + "</p>";
+        html += "<p style='margin:8px 0;font-size:14px;color:#999;'><strong>Chip ID:</strong> " + String((uint32_t)ESP.getEfuseMac(), HEX) + "</p>";
+        html += "<p style='margin:8px 0;font-size:14px;color:#999;'><strong>Free Heap:</strong> " + String(ESP.getFreeHeap() / 1024) + " KB</p>";
         html += "</div>";
 
         html += pageFooter();
@@ -309,6 +322,137 @@ void webServerInit() {
     server.on("/wifi/disconnect", HTTP_POST, [](AsyncWebServerRequest *r) {
         wifiDisconnectSTA();
         r->redirect("/settings");
+    });
+
+    /* ===== Input Troubleshooting Page ===== */
+    server.on("/input", HTTP_GET, [](AsyncWebServerRequest *r) {
+        String html = pageHeader("Input Troubleshooting");
+        
+        html += "<style>"
+                ".input-grid{display:grid;grid-template-columns:1fr;gap:12px;}"
+                ".input-row{display:flex;justify-content:space-between;align-items:center;padding:12px;background:#1a1a1a;border-radius:8px;}"
+                ".input-label{font-size:14px;color:#999;}"
+                ".input-value{font-size:16px;font-weight:600;font-family:monospace;}"
+                ".status-active{color:#4ade80;}"
+                ".status-inactive{color:#666;}"
+                ".status-high{color:#fbbf24;}"
+                ".status-low{color:#60a5fa;}"
+                "</style>";
+        
+        html += "<div class='settings-card'>";
+        html += "<div class='card-title'>Physical Buttons (Active Low)</div>";
+        html += "<div class='input-grid'>";
+        html += "<div class='input-row'><span class='input-label'>Start/Stop (Pin 12)</span><span id='btn-start' class='input-value'>--</span></div>";
+        html += "<div class='input-row'><span class='input-label'>Rest (Pin 13)</span><span id='btn-rest' class='input-value'>--</span></div>";
+        html += "<div class='input-row'><span class='input-label'>Reset (Pin 14)</span><span id='btn-reset' class='input-value'>--</span></div>";
+        html += "</div></div>";
+        
+        html += "<div class='settings-card'>";
+        html += "<div class='card-title'>Rotary Encoder</div>";
+        html += "<div class='input-grid'>";
+        html += "<div class='input-row'><span class='input-label'>Position</span><span id='enc-pos' class='input-value'>--</span></div>";
+        html += "<div class='input-row'><span class='input-label'>CLK Pin (32)</span><span id='enc-clk' class='input-value'>--</span></div>";
+        html += "<div class='input-row'><span class='input-label'>DT Pin (33)</span><span id='enc-dt' class='input-value'>--</span></div>";
+        html += "<div class='input-row'><span class='input-label'>SW Button (27)</span><span id='enc-btn' class='input-value'>--</span></div>";
+        html += "</div></div>";
+        
+        html += "<div class='settings-card'>";
+        html += "<div class='card-title'>Cadence Sensor</div>";
+        html += "<div class='input-grid'>";
+        html += "<div class='input-row'><span class='input-label'>Current RPM</span><span id='cadence-rpm' class='input-value'>--</span></div>";
+        html += "<div class='input-row'><span class='input-label'>Pin State (26)</span><span id='cadence-pin' class='input-value'>--</span></div>";
+        html += "<div class='input-row'><span class='input-label'>Last Pulse</span><span id='cadence-last' class='input-value'>--</span></div>";
+        html += "</div></div>";
+        
+        html += "<div class='settings-card'>";
+        html += "<div class='card-title'>Emergency Stop</div>";
+        html += "<div class='input-grid'>";
+        html += "<div class='input-row'><span class='input-label'>Pin (34)</span><span id='emergency' class='input-value'>--</span></div>";
+        html += "</div></div>";
+        
+        html += "<div class='settings-card'>";
+        html += "<a class='button secondary' href='/settings'>&#8592; Back to Settings</a>";
+        html += "</div>";
+        
+        html += "<script>"
+                "function updateInputs(){"
+                "fetch('/api/inputs').then(r=>r.json()).then(d=>{"
+                "document.getElementById('btn-start').textContent=d.btnStart?'PRESSED':'Released';"
+                "document.getElementById('btn-start').className='input-value '+(d.btnStart?'status-active':'status-inactive');"
+                "document.getElementById('btn-rest').textContent=d.btnRest?'PRESSED':'Released';"
+                "document.getElementById('btn-rest').className='input-value '+(d.btnRest?'status-active':'status-inactive');"
+                "document.getElementById('btn-reset').textContent=d.btnReset?'PRESSED':'Released';"
+                "document.getElementById('btn-reset').className='input-value '+(d.btnReset?'status-active':'status-inactive');"
+                "document.getElementById('enc-pos').textContent=d.encPos;"
+                "document.getElementById('enc-clk').textContent=d.encClk?'HIGH':'LOW';"
+                "document.getElementById('enc-clk').className='input-value '+(d.encClk?'status-high':'status-low');"
+                "document.getElementById('enc-dt').textContent=d.encDt?'HIGH':'LOW';"
+                "document.getElementById('enc-dt').className='input-value '+(d.encDt?'status-high':'status-low');"
+                "document.getElementById('enc-btn').textContent=d.encBtn?'Released':'PRESSED';"
+                "document.getElementById('enc-btn').className='input-value '+(d.encBtn?'status-inactive':'status-active');"
+                "document.getElementById('cadence-rpm').textContent=d.cadenceRpm+' RPM';"
+                "document.getElementById('cadence-pin').textContent=d.cadencePin?'HIGH':'LOW';"
+                "document.getElementById('cadence-pin').className='input-value '+(d.cadencePin?'status-high':'status-low');"
+                "let timeSince=Date.now()-d.cadenceLast;"
+                "document.getElementById('cadence-last').textContent=timeSince<5000?timeSince+' ms ago':'No recent pulse';"
+                "document.getElementById('emergency').textContent=d.emergency?'NORMAL':'TRIGGERED';"
+                "document.getElementById('emergency').className='input-value '+(d.emergency?'status-inactive':'status-active');"
+                "}).catch(e=>console.error(e));}"
+                "setInterval(updateInputs,100);"
+                "updateInputs();"
+                "</script>";
+        
+        html += pageFooter();
+        r->send(200, "text/html", html);
+    });
+
+    /* ===== API: Input States ===== */
+    server.on("/api/inputs", HTTP_GET, [](AsyncWebServerRequest *r) {
+        JsonDocument doc;
+        
+        // Physical buttons (active low - inverted for display)
+        doc["btnStart"] = !getRawButtonState(BTN_START_STOP);
+        doc["btnRest"] = !getRawButtonState(BTN_REST);
+        doc["btnReset"] = !getRawButtonState(BTN_RESET);
+        
+        // Rotary encoder
+        doc["encPos"] = getEncoderPosition();
+        doc["encClk"] = getRawEncoderClk();
+        doc["encDt"] = getRawEncoderDt();
+        doc["encBtn"] = getRawEncoderButton();
+        
+        // Cadence
+        doc["cadenceRpm"] = getCadenceRPM();
+        doc["cadencePin"] = getRawCadencePin();
+        doc["cadenceLast"] = getLastCadencePulseTime() / 1000; // Convert to ms
+        
+        // Emergency stop
+#ifndef DISABLE_EMERGENCY_PIN
+        doc["emergency"] = digitalRead(EMERGENCY_PIN);
+#else
+        doc["emergency"] = true; // Disabled
+#endif
+        
+        String output;
+        serializeJson(doc, output);
+        r->send(200, "application/json", output);
+    });
+
+    /* ===== Favicon ===== */
+    server.on("/favicon.svg", HTTP_GET, [](AsyncWebServerRequest *r) {
+        const char* svg = 
+            "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>"
+            "<defs>"
+            "<linearGradient id='grad' x1='0%' y1='0%' x2='100%' y2='100%'>"
+            "<stop offset='0%' style='stop-color:#667eea;stop-opacity:1'/>"
+            "<stop offset='100%' style='stop-color:#764ba2;stop-opacity:1'/>"
+            "</linearGradient>"
+            "</defs>"
+            "<circle cx='50' cy='50' r='48' fill='url(#grad)'/>"
+            "<path d='M35 60 L35 35 L45 35 L45 50 L55 35 L65 35 L55 50 L65 60 L55 60 L45 50 L45 60 Z' fill='white'/>"
+            "<circle cx='50' cy='70' r='3' fill='white'/>"
+            "</svg>";
+        r->send(200, "image/svg+xml", svg);
     });
 
     /* ===== Captive Portal / Fallback ===== */

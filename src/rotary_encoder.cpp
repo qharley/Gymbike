@@ -95,3 +95,19 @@ bool encoderButtonPressed() {
     }
     return false;
 }
+
+int getEncoderPosition() {
+    return encoderPos;
+}
+
+bool getRawEncoderClk() {
+    return digitalRead(ENCODER_CLK_PIN);
+}
+
+bool getRawEncoderDt() {
+    return digitalRead(ENCODER_DT_PIN);
+}
+
+bool getRawEncoderButton() {
+    return digitalRead(ENCODER_SW_PIN);
+}

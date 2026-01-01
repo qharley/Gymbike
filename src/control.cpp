@@ -57,6 +57,10 @@ void resetPID() {
     lastCadence = 0;
 }
 
+void resetCadenceTimer() {
+    lastCadenceTime = millis();
+}
+
 void setManualServo(int position) {
     position = constrain(position, SERVO_MIN, SERVO_MAX);
     manualServo = position;
@@ -170,17 +174,21 @@ void controlLoop() {
     // Handle physical button presses
     if (buttonWasPressed(BTN_START_STOP)) {
         handleStartStop();
+        resetCadenceTimer();  // Reset timer on button press
     }
     if (buttonWasPressed(BTN_REST)) {
         handleRest();
+        resetCadenceTimer();  // Reset timer on button press
     }
     if (buttonWasPressed(BTN_RESET)) {
         handleReset();
+        resetCadenceTimer();  // Reset timer on button press
     }
     
     // Handle rotary encoder input
     int encoderDelta = getEncoderDelta();
     if (encoderDelta != 0) {
+        resetCadenceTimer();  // Reset timer on encoder input
         if (controlMode == MODE_MANUAL) {
             // In manual mode: adjust resistance
             // Each click = 2% resistance change
@@ -202,6 +210,7 @@ void controlLoop() {
     
     // Handle encoder button press - cycle through modes
     if (encoderButtonPressed()) {
+        resetCadenceTimer();  // Reset timer on mode change
         int nextMode = ((int)controlMode + 1) % 3;
         controlMode = (ControlMode)nextMode;
         
@@ -237,11 +246,11 @@ void controlLoop() {
         resetPID();
     }
     // Safety: Release brake if no cadence detected for timeout period
-    /*else if (now - lastCadenceTime > CADENCE_TIMEOUT_MS) {
+    else if (now - lastCadenceTime > CADENCE_TIMEOUT_MS) {
         targetServoPos = SERVO_MIN;
         integral = 0;
         lastError = 0;
-    } */else {
+    } else {
         // Normal operation based on mode
         switch (controlMode) {
             case MODE_MANUAL:
