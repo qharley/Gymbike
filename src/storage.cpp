@@ -3,6 +3,9 @@
 #include "config.h"
 #include <Preferences.h>
 
+extern float cadenceCurveWidth;
+extern float cadenceCurveGain;
+
 Preferences prefs;
 
 void loadControlConfig() {
@@ -11,6 +14,8 @@ void loadControlConfig() {
     ki = prefs.getFloat("ki", 0.02);
     kd = prefs.getFloat("kd", 0.0);
     targetCadence = prefs.getInt("cad", 80);
+    setCadenceCurveWidth(prefs.getFloat("cadWidth", 10.0));
+    setCadenceCurveGain(prefs.getFloat("cadGain", 2.0));
     prefs.end();
 }
 
@@ -20,5 +25,7 @@ void saveControlConfig() {
     prefs.putFloat("ki", ki);
     prefs.putFloat("kd", kd);
     prefs.putInt("cad", targetCadence);
+    prefs.putFloat("cadWidth", getCadenceCurveWidth());
+    prefs.putFloat("cadGain", getCadenceCurveGain());
     prefs.end();
 }

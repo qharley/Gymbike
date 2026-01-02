@@ -7,6 +7,7 @@
 #include "buttons.h"
 #include "rotary_encoder.h"
 #include "config.h"
+#include "storage.h"
 #include <ArduinoJson.h>
 
 // Forward declaration if not in wifi_manager.h
@@ -255,6 +256,32 @@ void webServerInit() {
         r->send(200, "text/plain", "OK");
     });
 
+    /* ===== Cadence Settings API ===== */
+    server.on("/api/cadence/settings", HTTP_GET, [](AsyncWebServerRequest *r) {
+        // GET: Return current settings as JSON
+        String json = "{";
+        json += "\"targetCadence\":" + String(targetCadence) + ",";
+        json += "\"curveWidth\":" + String(getCadenceCurveWidth(), 2) + ",";
+        json += "\"curveGain\":" + String(getCadenceCurveGain(), 2);
+        json += "}";
+        r->send(200, "application/json", json);
+    });
+
+    server.on("/api/cadence/settings", HTTP_POST, [](AsyncWebServerRequest *r) {
+        // POST: Update settings
+        if (r->hasParam("targetCadence", true)) {
+            setTargetCadence(r->getParam("targetCadence", true)->value().toInt());
+        }
+        if (r->hasParam("curveWidth", true)) {
+            setCadenceCurveWidth(r->getParam("curveWidth", true)->value().toFloat());
+        }
+        if (r->hasParam("curveGain", true)) {
+            setCadenceCurveGain(r->getParam("curveGain", true)->value().toFloat());
+        }
+        saveControlConfig();
+        r->send(200, "text/plain", "OK");
+    });
+
     /* ===== Settings Page ===== */
     server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *r) {
 
@@ -280,6 +307,21 @@ void webServerInit() {
         html += "<input name='ssid' placeholder='Network Name (SSID)' required>";
         html += "<input name='pass' type='password' placeholder='Password (optional)'>";
         html += "<button class='button' style='margin-top:16px;'>Connect</button>";
+        html += "</form>";
+        html += "</div>";
+
+        html += "<div class='settings-card'>";
+        html += "<div class='card-title'>Cadence Mode Settings</div>";
+        html += "<form method='POST' action='/settings/cadence' id='cadenceForm'>";
+        html += "<label style='display:block;margin:12px 0 4px;font-size:14px;color:#ccc;'>Default Target Cadence (RPM)</label>";
+        html += "<input name='targetCadence' type='number' min='40' max='120' step='1' value='" + String(targetCadence) + "' style='margin-top:4px;'>";
+        html += "<label style='display:block;margin:12px 0 4px;font-size:14px;color:#ccc;'>Curve Width (RPM) - Controls responsiveness near target</label>";
+        html += "<input name='curveWidth' type='number' min='1' max='30' step='0.5' value='" + String(getCadenceCurveWidth(), 1) + "' style='margin-top:4px;'>";
+        html += "<p style='margin:4px 0;font-size:12px;color:#666;'>Smaller = tighter control, Larger = gentler response</p>";
+        html += "<label style='display:block;margin:12px 0 4px;font-size:14px;color:#ccc;'>Curve Gain - Controls maximum rate of change</label>";
+        html += "<input name='curveGain' type='number' min='0.1' max='10' step='0.1' value='" + String(getCadenceCurveGain(), 1) + "' style='margin-top:4px;'>";
+        html += "<p style='margin:4px 0;font-size:12px;color:#666;'>Higher = faster changes when far from target</p>";
+        html += "<button class='button' style='margin-top:16px;'>Save Cadence Settings</button>";
         html += "</form>";
         html += "</div>";
 
@@ -316,6 +358,24 @@ void webServerInit() {
     /* ===== Wi-Fi disconnect ===== */
     server.on("/wifi/disconnect", HTTP_POST, [](AsyncWebServerRequest *r) {
         wifiDisconnectSTA();
+        r->redirect("/settings");
+    });
+
+    /* ===== Cadence Settings Save ===== */
+    server.on("/settings/cadence", HTTP_POST, [](AsyncWebServerRequest *r) {
+        if (r->hasParam("targetCadence", true)) {
+            int cadence = r->getParam("targetCadence", true)->value().toInt();
+            setTargetCadence(cadence);
+        }
+        if (r->hasParam("curveWidth", true)) {
+            float width = r->getParam("curveWidth", true)->value().toFloat();
+            setCadenceCurveWidth(width);
+        }
+        if (r->hasParam("curveGain", true)) {
+            float gain = r->getParam("curveGain", true)->value().toFloat();
+            setCadenceCurveGain(gain);
+        }
+        saveControlConfig();
         r->redirect("/settings");
     });
 
