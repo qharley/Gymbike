@@ -18,7 +18,7 @@ unsigned long workoutStartTime = 0;
 unsigned long workoutElapsedTime = 0;
 unsigned long restStartTime = 0;
 
-// PID parameters - tunable
+// PID parameters - tunable (kept for potential future use)
 float kp = 0.5;
 float ki = 0.01;
 float kd = 0.1;
@@ -28,10 +28,14 @@ float integral = 0;
 float lastError = 0;
 int lastCadence = 0;
 
+// Cadence curve control parameters - tunable
+float cadenceCurveWidth = 10.0;   // RPM - width of the "near target" zone (low sensitivity)
+float cadenceCurveGain = 2.0;     // Multiplier for rate of change when far from target
+
 // Control loop timing
 unsigned long lastControlTime = 0;
 unsigned long lastCadenceTime = 0;
-const unsigned long CONTROL_INTERVAL_MS = 100; // Run PID every 100ms
+const unsigned long CONTROL_INTERVAL_MS = 100; // Run control loop every 100ms
 
 // Servo state
 int servoPos = SERVO_MIN;
@@ -40,8 +44,9 @@ int targetServoPos = SERVO_MIN;
 // Constants
 const float INTEGRAL_MAX = 100.0;
 const float INTEGRAL_MIN = -100.0;
-const int CADENCE_DEADBAND = 2; // Don't adjust if within ±2 RPM
+const int CADENCE_DEADBAND = 1; // Minimal deadband to prevent micro-adjustments
 const int SERVO_RATE_LIMIT = 3; // Max servo change per control cycle
+const int MAX_CADENCE_RATE = 5; // Max servo change per cycle in cadence mode (at peak of curve)
 
 int getServoPosition() {
     return servoPos;
@@ -49,6 +54,22 @@ int getServoPosition() {
 
 void setTargetCadence(int cadence) {
     targetCadence = constrain(cadence, 40, 120);
+}
+
+void setCadenceCurveWidth(float width) {
+    cadenceCurveWidth = constrain(width, 1.0, 30.0);
+}
+
+float getCadenceCurveWidth() {
+    return cadenceCurveWidth;
+}
+
+void setCadenceCurveGain(float gain) {
+    cadenceCurveGain = constrain(gain, 0.1, 10.0);
+}
+
+float getCadenceCurveGain() {
+    return cadenceCurveGain;
 }
 
 void resetPID() {
@@ -260,36 +281,42 @@ void controlLoop() {
                 break;
                 
             case MODE_CADENCE:
-                // Run PID control at fixed intervals
+                // Run cadence control at fixed intervals
                 if (now - lastControlTime >= CONTROL_INTERVAL_MS) {
                     lastControlTime = now;
                     
-                    // REVERSED: error is positive when cadence is TOO HIGH (need more brake)
+                    // Calculate error (positive = cadence too high, negative = cadence too low)
                     int error = currentCadence - targetCadence;
                     
-                    // Apply deadband to prevent hunting
+                    // Apply minimal deadband to prevent hunting at exact target
                     if (abs(error) <= CADENCE_DEADBAND) {
                         error = 0;
                     }
                     
-                    // Update integral with anti-windup
-                    integral += error * (CONTROL_INTERVAL_MS / 1000.0);
-                    integral = constrain(integral, INTEGRAL_MIN, INTEGRAL_MAX);
-                    
-                    // Calculate derivative (with filtering)
-                    float derivative = 0;
-                    if (lastCadence > 0) { // Only calculate if we have previous data
-                        derivative = (currentCadence - lastCadence) / (CONTROL_INTERVAL_MS / 1000.0);
+                    if (error != 0) {
+                        // Calculate allowed rate using inverted bell curve
+                        // When close to target: low rate (gentle changes)
+                        // When far from target: high rate (faster response)
+                        float normalizedError = abs(error) / cadenceCurveWidth;
+                        
+                        // Inverted Gaussian curve: rate increases as we move away from target
+                        // Formula: rate = maxRate * (1 - exp(-0.5 * (normalizedError)^2))
+                        float curveValue = 1.0 - exp(-0.5 * normalizedError * normalizedError);
+                        float allowedRate = MAX_CADENCE_RATE * cadenceCurveGain * curveValue;
+                        
+                        // Determine direction and apply rate-limited change
+                        if (error > 0) {
+                            // Cadence too high: increase brake (positive change)
+                            targetServoPos += (int)(allowedRate);
+                        } else {
+                            // Cadence too low: decrease brake (negative change)
+                            targetServoPos -= (int)(allowedRate);
+                        }
+                        
+                        targetServoPos = constrain(targetServoPos, SERVO_MIN, SERVO_MAX);
                     }
                     
-                    // PID output: positive output = increase brake
-                    float output = (kp * error) + (ki * integral) + (kd * derivative);
-                    
-                    // Apply output to servo target
-                    targetServoPos += (int)output;
-                    targetServoPos = constrain(targetServoPos, SERVO_MIN, SERVO_MAX);
-                    
-                    // Store for next iteration
+                    // Store for debugging/monitoring
                     lastError = error;
                     lastCadence = currentCadence;
                 }

@@ -32,3 +32,11 @@ extern int targetWatts;
 extern int manualServo;
 extern ControlMode controlMode;
 extern float kp, ki, kd;
+extern float cadenceCurveWidth;
+extern float cadenceCurveGain;
+
+// Cadence curve parameter setters/getters
+void setCadenceCurveWidth(float width);
+float getCadenceCurveWidth();
+void setCadenceCurveGain(float gain);
+float getCadenceCurveGain();
