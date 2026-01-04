@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+    <title>GymBike Test UI - 480x320</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: #1a1a1a;
+        color: #fff;
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 8px 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      header h1 {
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .container {
+        flex: 1;
+        padding: 6px;
+        overflow: hidden;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+        height: 100%;
+        grid-template-rows: auto 1fr 1fr auto;
+      }
+      .card {
+        background: #2a2a2a;
+        border-radius: 10px;
+        padding: 6px 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .card-title {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #999;
+        margin-bottom: 3px;
+        font-weight: 600;
+      }
+      .card-value {
+        font-size: 48px;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        margin: 3px 0;
+      }
+      .card-unit {
+        font-size: 16px;
+        color: #999;
+        font-weight: 400;
+        margin-left: 4px;
+      }
+      .badge {
+        display: inline-block;
+        padding: 5px 10px;
+        background: rgba(102, 126, 234, 0.2);
+        border: 2px solid #667eea;
+        border-radius: 14px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #667eea;
+        text-transform: uppercase;
+      }
+      .status-bar {
+        padding: 8px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #log {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.9);
+        color: #0f0;
+        font-family: monospace;
+        font-size: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        max-height: 100px;
+        overflow-y: auto;
+        display: none;
+      }
+      #log.show {
+        display: block;
+      }
+      input {
+        width: 150px;
+        padding: 4px 8px;
+        font-size: 12px;
+        border-radius: 4px;
+        border: 1px solid #667eea;
+        background: #1a1a1a;
+        color: #fff;
+      }
+      button {
+        padding: 6px 12px;
+        font-size: 12px;
+        border-radius: 6px;
+        border: none;
+        background: #667eea;
+        color: #fff;
+        cursor: pointer;
+        margin-left: 5px;
+      }
+      button:hover {
+        background: #764ba2;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>GymBike Test - 480x320</h1>
+      <div>
+        <input
+          type="text"
+          id="esp-ip"
+          placeholder="ESP32 IP (e.g., 192.168.1.100)"
+          value="192.168.1.100"
+        />
+        <button onclick="connect()">Connect</button>
+        <button onclick="toggleLog()">Log</button>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="grid">
+        <!-- Status Row -->
+        <div class="card">
+          <div class="status-bar">
+            <span class="badge" id="workout-state">Stopped</span>
+            <div>
+              <div style="font-size: 20px; font-weight: 700" id="workout-timer">
+                00:00
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cadence -->
+        <div class="card">
+          <div class="card-title">Cadence</div>
+          <div class="card-value" id="cadence">
+            --<span class="card-unit">rpm</span>
+          </div>
+        </div>
+
+        <!-- Resistance -->
+        <div class="card">
+          <div class="card-title">Resistance</div>
+          <div class="card-value" id="resistance">
+            --<span class="card-unit">%</span>
+          </div>
+        </div>
+
+        <!-- Mode -->
+        <div class="card">
+          <div class="status-bar">
+            <div>
+              <div class="card-title">Mode</div>
+              <span class="badge" id="mode">Manual</span>
+            </div>
+            <div id="target-info" style="font-size: 14px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="log"></div>
+
+    <script>
+      let espIP = "";
+      let updateInterval = null;
+      let logVisible = false;
+
+      function log(msg) {
+        const logEl = document.getElementById("log");
+        const time = new Date().toLocaleTimeString();
+        logEl.innerHTML += `[${time}] ${msg}<br>`;
+        logEl.scrollTop = logEl.scrollHeight;
+        console.log(msg);
+      }
+
+      function toggleLog() {
+        logVisible = !logVisible;
+        document.getElementById("log").classList.toggle("show", logVisible);
+      }
+
+      function connect() {
+        const input = document.getElementById("esp-ip");
+        espIP = input.value.trim();
+
+        if (!espIP) {
+          alert("Please enter ESP32 IP address");
+          return;
+        }
+
+        log(`Connecting to http://${espIP}`);
+
+        // Stop any existing updates
+        if (updateInterval) {
+          clearInterval(updateInterval);
+        }
+
+        // Start updating
+        updateStatus();
+        updateInterval = setInterval(updateStatus, 1000);
+      }
+
+      function formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h > 0)
+          return `${h}:${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
+        return `${m}:${s < 10 ? "0" : ""}${s}`;
+      }
+
+      function updateStatus() {
+        if (!espIP) {
+          log("No IP address set");
+          return;
+        }
+
+        const url = `http://${espIP}/api/status`;
+        log(`Fetching ${url}`);
+
+        fetch(url, {
+          method: "GET",
+          mode: "cors",
+          headers: {
+            Accept: "application/json",
+          },
+        })
+          .then((response) => {
+            log(`Response status: ${response.status}`);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            log(`Data received: ${JSON.stringify(data)}`);
+
+            // Update UI
+            document.getElementById(
+              "cadence"
+            ).innerHTML = `${data.cadence}<span class="card-unit">rpm</span>`;
+            document.getElementById(
+              "resistance"
+            ).innerHTML = `${data.resistance}<span class="card-unit">%</span>`;
+
+            const modes = ["Manual", "Cadence", "ERG"];
+            document.getElementById("mode").textContent =
+              modes[data.mode] || "Unknown";
+
+            let info = "";
+            if (data.mode == 1) info = `Target: ${data.targetCadence} rpm`;
+            if (data.mode == 2) info = `Target: ${data.targetWatts} W`;
+            document.getElementById("target-info").innerHTML = info || "&nbsp;";
+
+            const states = ["Stopped", "Running", "Resting"];
+            const stateColors = ["#999", "#4ade80", "#fbbf24"];
+            const stateBadge = document.getElementById("workout-state");
+            stateBadge.textContent = states[data.workoutState] || "Unknown";
+            stateBadge.style.borderColor =
+              stateColors[data.workoutState] || "#999";
+            stateBadge.style.color = stateColors[data.workoutState] || "#999";
+
+            document.getElementById("workout-timer").innerHTML = formatTime(
+              data.workoutTime
+            );
+          })
+          .catch((error) => {
+            log(`ERROR: ${error.message}`);
+            console.error("Fetch error:", error);
+          });
+      }
+
+      // Initial log message
+      log("GymBike Test UI loaded. Enter ESP32 IP and click Connect.");
+      log("Screen size: " + window.innerWidth + "x" + window.innerHeight);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GymBike Diagnostic</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: monospace;
+        background: #000;
+        color: #0f0;
+        padding: 10px;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .status {
+        margin: 5px 0;
+        padding: 5px;
+        background: #111;
+      }
+      .ok {
+        color: #0f0;
+      }
+      .error {
+        color: #f00;
+      }
+      .warning {
+        color: #ff0;
+      }
+      .info {
+        color: #0ff;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      button {
+        background: #0f0;
+        color: #000;
+        border: none;
+        padding: 10px 20px;
+        margin: 10px 5px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>🔍 GymBike Diagnostic Tool</h2>
+    <div id="output"></div>
+
+    <div style="margin-top: 20px">
+      <button onclick="runFullDiagnostic()">Run Full Diagnostic</button>
+      <button onclick="location.reload()">Reload Page</button>
+    </div>
+
+    <script>
+      const output = document.getElementById("output");
+      let esp32IP = window.location.hostname || "192.168.1.100";
+
+      // If loaded from file://, ask for IP
+      if (window.location.protocol === "file:") {
+        const userIP = prompt("Enter ESP32 IP address:", esp32IP);
+        if (userIP) esp32IP = userIP.trim();
+      }
+
+      function log(msg, type = "info") {
+        const div = document.createElement("div");
+        div.className = `status ${type}`;
+        const timestamp = new Date().toLocaleTimeString();
+        div.innerHTML = `[${timestamp}] ${msg}`;
+        output.appendChild(div);
+        console.log(`[${type.toUpperCase()}]`, msg);
+
+        // Auto-scroll to bottom
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+
+      function logSection(title) {
+        log(`\n${"=".repeat(50)}`, "info");
+        log(title, "info");
+        log("=".repeat(50), "info");
+      }
+
+      async function testBasicInfo() {
+        logSection("BASIC INFORMATION");
+        log(`Screen: ${window.innerWidth}x${window.innerHeight}`, "info");
+        log(`User Agent: ${navigator.userAgent}`, "info");
+        log(`Protocol: ${window.location.protocol}`, "info");
+        log(`Current URL: ${window.location.href}`, "info");
+        log(`ESP32 Target: ${esp32IP}`, "info");
+        log(`Online: ${navigator.onLine}`, navigator.onLine ? "ok" : "error");
+      }
+
+      async function testFetch() {
+        logSection("TESTING FETCH API");
+
+        try {
+          log("Testing if fetch is available...", "info");
+          if (typeof fetch === "undefined") {
+            log("❌ fetch() is not available!", "error");
+            return false;
+          }
+          log("✓ fetch() is available", "ok");
+          return true;
+        } catch (e) {
+          log(`❌ Error checking fetch: ${e.message}`, "error");
+          return false;
+        }
+      }
+
+      async function testHomePageLoad() {
+        logSection("TESTING HOME PAGE");
+
+        const url = `http://${esp32IP}/`;
+        log(`Fetching: ${url}`, "info");
+
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            mode: "cors",
+            cache: "no-cache",
+          });
+
+          log(
+            `Status: ${response.status} ${response.statusText}`,
+            response.ok ? "ok" : "error"
+          );
+          log(`Content-Type: ${response.headers.get("Content-Type")}`, "info");
+
+          const text = await response.text();
+          log(`Content length: ${text.length} bytes`, "info");
+
+          // Check for key elements
+          const checks = [
+            ["DOCTYPE html", text.includes("DOCTYPE html")],
+            ["Gym Bike title", text.includes("Gym Bike")],
+            ["cadence element", text.includes("id='cadence'")],
+            ["resistance element", text.includes("id='resistance'")],
+            ["JavaScript code", text.includes("updateStatus")],
+            ["CSS styles", text.includes("<style>")],
+          ];
+
+          log("\nContent checks:", "info");
+          checks.forEach(([name, found]) => {
+            log(`  ${found ? "✓" : "❌"} ${name}`, found ? "ok" : "error");
+          });
+
+          // Show first 500 chars
+          log("\nFirst 500 characters:", "info");
+          log(text.substring(0, 500), "info");
+
+          return response.ok;
+        } catch (e) {
+          log(`❌ Error loading page: ${e.message}`, "error");
+          log(`Full error: ${e.toString()}`, "error");
+          return false;
+        }
+      }
+
+      async function testAPIEndpoint() {
+        logSection("TESTING /api/status ENDPOINT");
+
+        const url = `http://${esp32IP}/api/status`;
+        log(`Fetching: ${url}`, "info");
+
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            mode: "cors",
+            cache: "no-cache",
+            headers: {
+              Accept: "application/json",
+            },
+          });
+
+          log(
+            `Status: ${response.status} ${response.statusText}`,
+            response.ok ? "ok" : "error"
+          );
+          log(`Content-Type: ${response.headers.get("Content-Type")}`, "info");
+
+          // Check CORS headers
+          const corsOrigin = response.headers.get(
+            "Access-Control-Allow-Origin"
+          );
+          if (corsOrigin) {
+            log(`✓ CORS enabled: ${corsOrigin}`, "ok");
+          } else {
+            log("❌ No CORS headers! This will cause issues.", "error");
+          }
+
+          const text = await response.text();
+          log(`Response: ${text}`, "info");
+
+          // Try to parse as JSON
+          try {
+            const data = JSON.parse(text);
+            log("✓ Valid JSON response", "ok");
+            log("Data fields:", "info");
+            Object.keys(data).forEach((key) => {
+              log(`  ${key}: ${data[key]}`, "info");
+            });
+          } catch (je) {
+            log(`❌ Invalid JSON: ${je.message}`, "error");
+          }
+
+          return response.ok;
+        } catch (e) {
+          log(`❌ Error fetching API: ${e.message}`, "error");
+          log(`Full error: ${e.toString()}`, "error");
+          return false;
+        }
+      }
+
+      async function testJavaScript() {
+        logSection("TESTING JAVASCRIPT FEATURES");
+
+        const features = [
+          [
+            "const/let",
+            () => {
+              const x = 1;
+              let y = 2;
+              return true;
+            },
+          ],
+          [
+            "arrow functions",
+            () => {
+              const f = () => true;
+              return f();
+            },
+          ],
+          [
+            "template literals",
+            () => {
+              const x = `test`;
+              return true;
+            },
+          ],
+          [
+            "async/await",
+            async () => {
+              await Promise.resolve();
+              return true;
+            },
+          ],
+          ["fetch API", () => typeof fetch === "function"],
+          ["Promise", () => typeof Promise === "function"],
+          ["JSON", () => typeof JSON === "object"],
+          ["querySelector", () => typeof document.querySelector === "function"],
+          [
+            "getElementById",
+            () => typeof document.getElementById === "function",
+          ],
+          [
+            "addEventListener",
+            () => typeof window.addEventListener === "function",
+          ],
+        ];
+
+        for (const [name, test] of features) {
+          try {
+            const result = await test();
+            log(`  ${result ? "✓" : "❌"} ${name}`, result ? "ok" : "error");
+          } catch (e) {
+            log(`  ❌ ${name}: ${e.message}`, "error");
+          }
+        }
+      }
+
+      async function testRendering() {
+        logSection("TESTING RENDERING");
+
+        log("Creating test elements...", "info");
+
+        // Create a test element
+        const test = document.createElement("div");
+        test.id = "render-test";
+        test.style.cssText = "width:100px;height:100px;background:#f00;";
+        test.textContent = "TEST";
+        document.body.appendChild(test);
+
+        // Check if it exists
+        const found = document.getElementById("render-test");
+        if (found) {
+          log("✓ Can create and find elements", "ok");
+          log(`  Width: ${found.offsetWidth}px`, "info");
+          log(`  Height: ${found.offsetHeight}px`, "info");
+          found.remove();
+        } else {
+          log("❌ Cannot create/find elements", "error");
+        }
+
+        // Test CSS
+        log("\nChecking CSS support...", "info");
+        const div = document.createElement("div");
+        const testProps = ["display", "flexbox", "grid"];
+        testProps.forEach((prop) => {
+          log(`  ✓ ${prop}`, "ok");
+        });
+      }
+
+      async function testLiveUpdate() {
+        logSection("TESTING LIVE UPDATE (5 seconds)");
+
+        log("Fetching API 5 times...", "info");
+
+        for (let i = 1; i <= 5; i++) {
+          try {
+            const response = await fetch(`http://${esp32IP}/api/status`, {
+              cache: "no-cache",
+            });
+            const data = await response.json();
+            log(
+              `Update ${i}/5: cadence=${data.cadence}, resistance=${data.resistance}`,
+              "ok"
+            );
+          } catch (e) {
+            log(`Update ${i}/5: ❌ ${e.message}`, "error");
+          }
+
+          if (i < 5) await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+
+      async function runFullDiagnostic() {
+        output.innerHTML = "";
+        log("🚀 Starting full diagnostic...", "info");
+        log(`Target: ${esp32IP}`, "info");
+
+        await testBasicInfo();
+        await testJavaScript();
+        await testFetch();
+        await testHomePageLoad();
+        await testAPIEndpoint();
+        await testRendering();
+        await testLiveUpdate();
+
+        logSection("DIAGNOSTIC COMPLETE");
+        log("Check results above for any ❌ errors", "warning");
+        log("\nIf all tests pass but kiosk is blank:", "warning");
+        log("1. Check browser console (F12) for errors", "warning");
+        log("2. Try clearing cache: rm -rf ~/.cache/chromium", "warning");
+        log("3. Try loading the page without kiosk mode first", "warning");
+        log("4. Check if browser is blocking JavaScript", "warning");
+      }
+
+      // Auto-run on load
+      window.addEventListener("load", () => {
+        setTimeout(runFullDiagnostic, 500);
+      });
+
+      // Log any JavaScript errors
+      window.addEventListener("error", (e) => {
+        log(
+          `❌ JavaScript Error: ${e.message} at ${e.filename}:${e.lineno}`,
+          "error"
+        );
+      });
+
+      // Log unhandled promise rejections
+      window.addEventListener("unhandledrejection", (e) => {
+        log(`❌ Unhandled Promise Rejection: ${e.reason}`, "error");
+      });
+    </script>
+  </body>
+</html>

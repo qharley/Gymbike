@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GymBike Minimal Test</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        background: #1a1a1a;
+        color: #fff;
+        padding: 20px;
+      }
+      .value {
+        font-size: 48px;
+        font-weight: bold;
+        margin: 20px 0;
+        padding: 20px;
+        background: #2a2a2a;
+        border-radius: 10px;
+        text-align: center;
+      }
+      .label {
+        font-size: 14px;
+        color: #999;
+        text-transform: uppercase;
+      }
+      .log {
+        margin-top: 20px;
+        padding: 10px;
+        background: #000;
+        color: #0f0;
+        font-family: monospace;
+        font-size: 10px;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>GymBike Minimal Test</h1>
+    <p id="status">Loading...</p>
+
+    <div class="value">
+      <div class="label">Cadence</div>
+      <div id="cadence">--</div>
+    </div>
+
+    <div class="value">
+      <div class="label">Resistance</div>
+      <div id="resistance">--</div>
+    </div>
+
+    <div class="log" id="log"></div>
+
+    <script>
+      // Simple logging
+      function log(msg) {
+        const logEl = document.getElementById("log");
+        const time = new Date().toLocaleTimeString();
+        logEl.innerHTML += `[${time}] ${msg}<br>`;
+        logEl.scrollTop = logEl.scrollHeight;
+        console.log(msg);
+      }
+
+      log("Script started");
+      log("User agent: " + navigator.userAgent);
+      log("Screen: " + window.innerWidth + "x" + window.innerHeight);
+
+      // Get ESP32 IP
+      let espIP = window.location.hostname;
+      if (!espIP || espIP === "" || window.location.protocol === "file:") {
+        espIP = prompt("Enter ESP32 IP:", "192.168.1.100") || "192.168.1.100";
+      }
+      log("ESP32 IP: " + espIP);
+
+      // Update function
+      function updateStatus() {
+        const url = "http://" + espIP + "/api/status";
+        log("Fetching: " + url);
+
+        fetch(url)
+          .then((response) => {
+            log("Response status: " + response.status);
+            if (!response.ok) {
+              throw new Error("HTTP " + response.status);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            log("Data received: " + JSON.stringify(data));
+
+            // Update UI
+            document.getElementById("cadence").textContent =
+              data.cadence + " rpm";
+            document.getElementById("resistance").textContent =
+              data.resistance + "%";
+            document.getElementById("status").textContent =
+              "Connected - Last update: " + new Date().toLocaleTimeString();
+            document.getElementById("status").style.color = "#0f0";
+          })
+          .catch((error) => {
+            log("ERROR: " + error.message);
+            document.getElementById("status").textContent =
+              "Error: " + error.message;
+            document.getElementById("status").style.color = "#f00";
+          });
+      }
+
+      // Test immediately
+      log("Running initial update...");
+      updateStatus();
+
+      // Then every 2 seconds
+      log("Starting interval updates (every 2s)...");
+      setInterval(updateStatus, 2000);
+
+      log("Setup complete. Watching for updates...");
+    </script>
+  </body>
+</html>
