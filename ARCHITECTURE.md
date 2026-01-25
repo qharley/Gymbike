@@ -4,8 +4,8 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Your Network                             │
-│                                                                   │
+│                         Your Network                            │
+│                                                                 │
 │  ┌──────────────────────┐              ┌────────────────────┐   │
 │  │                      │              │                    │   │
 │  │      ESP32           │◄────WiFi────►│   Raspberry Pi     │   │
@@ -18,7 +18,7 @@
 │  │  │ GET /          │◄─┼──Requests────┤  │ JavaScript   │  │   │
 │  │  │ GET /api/status│  │              │  │ Auto-refresh │  │   │
 │  │  │                │  │              │  │              │  │   │
-│  │  │ JSON Responses │──┼──────────────►│  │ Display UI   │  │   │
+│  │  │ JSON Responses │──┼─────────────►│  │ Display UI   │  │   │
 │  │  └────────────────┘  │              │  └──────┬───────┘  │   │
 │  │                      │              │         │          │   │
 │  │  ┌────────────────┐  │              │         ▼          │   │
@@ -33,9 +33,9 @@
 │  │  │  • Servo       │  │              │  │  • Time      │  │   │
 │  │  └────────────────┘  │              │  └──────────────┘  │   │
 │  └──────────────────────┘              └────────────────────┘   │
-│          │                                                       │
+│          │                                                      │
 │          │ (Future)                                             │
-│          ▼                                                       │
+│          ▼                                                      │
 │  ┌──────────────────────┐                                       │
 │  │  Native ESP32 Display│                                       │
 │  │  (When hardware ready)│                                      │
@@ -135,14 +135,14 @@ This is a **thin client** architecture - all logic is on ESP32.
 ```
 ┌─────────────────────────────────────────────┐
 │ Must be on same network/subnet              │
-│                                              │
+│                                             │
 │ ESP32:        192.168.1.100                 │
 │ Raspberry Pi: 192.168.1.50                  │
-│                                              │
+│                                             │
 │ Communication: HTTP (port 80)               │
 │ Protocol: TCP/IP                            │
 │ Format: JSON                                │
-│                                              │
+│                                             │
 │ Firewall: Must allow HTTP between devices   │
 │ Bandwidth: Minimal (~1KB/sec)               │
 └─────────────────────────────────────────────┘

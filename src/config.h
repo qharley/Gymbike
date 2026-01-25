@@ -5,7 +5,7 @@
 
 #define SERVO_PIN 25
 #define SERVO_MIN 5
-#define SERVO_MAX 140//175
+#define SERVO_MAX 120//175
 #define EMERGENCY_PIN 34
 
 // Set a flag to disable the emergency pin
