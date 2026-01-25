@@ -21,6 +21,8 @@ void setup() {
     Serial.println();
     
     loadControlConfig();
+    loadDisplayConfig();
+    Serial.println();
     displayInit();
     Serial.println("[OK] Display initialized");
     wifiInit();

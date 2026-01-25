@@ -19,6 +19,7 @@ AsyncWebServer server(80);
 
 static String pageHeader(const String& title, bool noScroll = false) {
     String bodyClass = noScroll ? " class='no-scroll'" : "";
+    String marginPx = String(displayMargin) + "px";
     return
     "<!DOCTYPE html><html><head>"
     "<meta charset='UTF-8'>"
@@ -26,8 +27,9 @@ static String pageHeader(const String& title, bool noScroll = false) {
     "<link rel='icon' type='image/svg+xml' href='/favicon.svg'>"
     "<title>" + title + "</title>"
     "<style>"
+    ":root{--display-margin:" + marginPx + ";}"
     "*{margin:0;padding:0;box-sizing:border-box;}"
-    "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a1a;color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden;}"
+    "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a1a;color:#fff;min-height:100vh;display:flex;flex-direction:column;padding:var(--display-margin);}"
     "body.no-scroll{height:100vh;overflow:hidden;}"
     "header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:3px 6px;box-shadow:0 2px 4px rgba(0,0,0,0.3);position:relative;display:flex;justify-content:space-between;align-items:center;}"
     "header h1{font-size:13px;font-weight:600;letter-spacing:0.3px;margin:0;}"
@@ -35,7 +37,7 @@ static String pageHeader(const String& title, bool noScroll = false) {
     ".settings-icon:hover{opacity:1;}"
     ".wake-indicator{position:absolute;top:3px;right:35px;font-size:8px;color:rgba(255,255,255,0.7);display:none;}"
     ".wake-indicator.active{display:block;}"
-    ".container{flex:1;padding:3px;width:100%;display:flex;flex-direction:column;overflow:hidden;}"
+    ".container{flex:1;padding:3px;width:100%;display:flex;flex-direction:column;}"
     "body.no-scroll .container{overflow:hidden;}"
     ".grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;flex:1;grid-template-rows:auto 1fr auto;height:100%;}"
     "@media(min-width:768px){.grid{grid-template-columns:repeat(2,1fr);grid-template-rows:auto 1fr auto;}.grid-full{grid-column:1/-1;}}"
@@ -354,6 +356,20 @@ void webServerInit() {
         html += "</div>";
 
         html += "<div class='settings-card'>";
+        html += "<div class='card-title'>Display Settings (480x320 Kiosk)</div>";
+        html += "<form method='POST' action='/settings/display' id='displayForm'>";
+        html += "<label style='display:block;margin:12px 0 4px;font-size:14px;color:#ccc;'>Screen Edge Margin (pixels)</label>";
+        html += "<input name='margin' type='number' min='0' max='50' step='1' value='" + String(displayMargin) + "' style='margin-top:4px;'>";
+        html += "<p style='margin:4px 0;font-size:12px;color:#666;'>Prevents text/graphics from falling off display edges (0-50px)</p>";
+        html += "<div style='margin:12px 0;padding:12px;background:#1a1a1a;border-radius:8px;border:1px solid #3a3a3a;'>";
+        html += "<div style='font-size:12px;color:#999;margin-bottom:8px;'>Current margin: <strong style='color:#667eea;'>" + String(displayMargin) + "px</strong></div>";
+        html += "<div style='font-size:11px;color:#666;'>Recommended: 5-10px for most displays</div>";
+        html += "</div>";
+        html += "<button class='button' style='margin-top:16px;'>Save Display Settings</button>";
+        html += "</form>";
+        html += "</div>";
+
+        html += "<div class='settings-card'>";
         html += "<a class='button secondary' href='/update'>&#8635; Firmware Update</a>";
         html += "<a class='button secondary' href='/input' style='margin-top:12px;'>&#128295; Input Troubleshooting</a>";
         html += "<a class='button secondary' href='/' style='margin-top:12px;'>&#8592; Back to Bike</a>";
@@ -404,6 +420,17 @@ void webServerInit() {
             setCadenceCurveGain(gain);
         }
         saveControlConfig();
+        r->redirect("/settings");
+    });
+
+    /* ===== Display Settings Save ===== */
+    server.on("/settings/display", HTTP_POST, [](AsyncWebServerRequest *r) {
+        if (r->hasParam("margin", true)) {
+            int margin = r->getParam("margin", true)->value().toInt();
+            // Constrain margin to safe values
+            displayMargin = constrain(margin, 0, 50);
+            saveDisplayConfig();
+        }
         r->redirect("/settings");
     });
 

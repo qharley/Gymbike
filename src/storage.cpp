@@ -7,6 +7,7 @@ extern float cadenceCurveWidth;
 extern float cadenceCurveGain;
 
 Preferences prefs;
+int displayMargin = 5; // Default 5px margin for kiosk display
 
 void loadControlConfig() {
     prefs.begin("ctrl", true);
@@ -17,6 +18,11 @@ void loadControlConfig() {
     setCadenceCurveWidth(prefs.getFloat("cadWidth", 10.0));
     setCadenceCurveGain(prefs.getFloat("cadGain", 2.0));
     prefs.end();
+    
+    Serial.println("[LOAD] Control Config:");
+    Serial.printf("  PID: kp=%.2f, ki=%.3f, kd=%.2f\n", kp, ki, kd);
+    Serial.printf("  Target Cadence: %d RPM\n", targetCadence);
+    Serial.printf("  Curve: width=%.1f, gain=%.1f\n", getCadenceCurveWidth(), getCadenceCurveGain());
 }
 
 void saveControlConfig() {
@@ -27,5 +33,19 @@ void saveControlConfig() {
     prefs.putInt("cad", targetCadence);
     prefs.putFloat("cadWidth", getCadenceCurveWidth());
     prefs.putFloat("cadGain", getCadenceCurveGain());
+    prefs.end();
+}
+
+void loadDisplayConfig() {
+    prefs.begin("display", true);
+    displayMargin = prefs.getInt("margin", 5); // Default 5px
+    prefs.end();
+    
+    Serial.printf("[LOAD] Display margin: %d px\n", displayMargin);
+}
+
+void saveDisplayConfig() {
+    prefs.begin("display", false);
+    prefs.putInt("margin", displayMargin);
     prefs.end();
 }
