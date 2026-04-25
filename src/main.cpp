@@ -8,6 +8,7 @@
 #include "ota.h"
 #include "rotary_encoder.h"
 #include "buttons.h"
+#include "bluetooth.h"
 
 void setup() {
     Serial.begin(115200);
@@ -28,6 +29,7 @@ void setup() {
     controlInit();
     webServerInit();
     otaInit();
+    bluetoothInit();
     Serial.println("[OK] System ready\n");
 }
 
@@ -38,6 +40,7 @@ void loop() {
     captivePortalLoop();
     encoderLoop();
     controlLoop();
+    bluetoothLoop();
     
     // Periodic status output for testing
     unsigned long now = millis();
