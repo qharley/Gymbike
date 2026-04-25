@@ -283,8 +283,20 @@ void controlLoop() {
                 break;
                 
             case MODE_ERG:
-                // TODO: Implement ERG mode (power-based control)
-                targetServoPos = manualServo;
+                // Power-based control: derive target resistance from target watts and
+                // current cadence using the same linear model as estimatePower():
+                //   Power = cadence × resistance_pct × NUMERATOR / DENOMINATOR
+                //   → resistance_pct = Power × DENOMINATOR / (cadence × NUMERATOR)
+                if (now - lastControlTime >= CONTROL_INTERVAL_MS) {
+                    lastControlTime = now;
+                    if (currentCadence > 0) {
+                        long denom = (long)currentCadence * POWER_FACTOR_NUMERATOR;
+                        int targetResistancePct = (int)(((long)targetWatts * POWER_FACTOR_DENOMINATOR) / denom);
+                        targetResistancePct = constrain(targetResistancePct, 0, 100);
+                        targetServoPos = map(targetResistancePct, 0, 100, SERVO_MIN, SERVO_MAX);
+                    }
+                    // If cadence is zero, hold current servo position until pedalling resumes
+                }
                 break;
         }
     }
